@@ -43,7 +43,7 @@ export default function Feed({ onOpen, onAsk }) {
       {/* the reason to come back */}
       {waiting.length > 0 && (
         <View style={st.pad}>
-          {waiting.slice(0, 2).map((t) => (
+          {waiting.slice(0, 2).map((t, i) => (
             <Pressable key={t.id} onPress={() => onOpen(t.questionId)} style={[st.todo, shadow(1)]}>
               <View style={{ flex: 1 }}>
                 <Text style={st.todoText} numberOfLines={1}>{t.text}</Text>

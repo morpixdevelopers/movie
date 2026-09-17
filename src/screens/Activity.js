@@ -1,5 +1,6 @@
 import React from 'react';
 import { View, Text, ScrollView, Pressable, StyleSheet } from 'react-native';
+import Animated, { FadeInDown } from 'react-native-reanimated';
 import { C, S, F, shadow } from '../theme';
 import { Btn } from '../ui';
 import { useStore } from '../store';
@@ -46,8 +47,9 @@ export default function Activity({ onOpen, onAsk }) {
           <Btn title="Ask a question" onPress={onAsk} style={{ marginTop: S.lg }} />
         </View>
       ) : (
-        items.map((a) => (
-          <Pressable key={a.id} onPress={() => onOpen(a.questionId)} style={st.row}>
+        items.map((a, i) => (
+          <Animated.View key={a.id} entering={FadeInDown.delay(i * 55).springify().damping(18)}>
+          <Pressable onPress={() => onOpen(a.questionId)} style={st.row}>
             <View style={[st.icon, a.kind === 'heart' && { backgroundColor: C.tint }]}>
               <Text style={[st.iconText, a.kind === 'heart' && { color: C.accent }]}>
                 {GLYPH[a.kind]}
@@ -58,6 +60,7 @@ export default function Activity({ onOpen, onAsk }) {
               <Text style={F.tiny}>{ago(a.at)}</Text>
             </View>
           </Pressable>
+          </Animated.View>
         ))
       )}
       <View style={{ height: 40 }} />

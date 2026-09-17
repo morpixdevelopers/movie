@@ -1,7 +1,10 @@
 import React, { useState, useEffect, useRef } from 'react';
 import {
-  View, Text, ScrollView, Pressable, StyleSheet, TextInput, Modal, useWindowDimensions,
+  View, Text, ScrollView, Pressable, StyleSheet, TextInput, useWindowDimensions,
 } from 'react-native';
+import Animated, { FadeInDown, FadeIn } from 'react-native-reanimated';
+import Sheet from '../components/Sheet';
+import Thanked from '../components/Thanked';
 import { C, S, F, shadow } from '../theme';
 import { Btn, Avatar, Poster } from '../ui';
 import { useStore } from '../store';
@@ -27,6 +30,7 @@ export default function Collection({ questionId, onBack }) {
   const [expText, setExpText] = useState('');
   const [picked, setPicked] = useState([]);
   const [comment, setComment] = useState('');
+  const [thanked, setThanked] = useState(null); // names awaiting the hearts animation
   const [remote, setRemote] = useState([]);
   const [looking, setLooking] = useState(false);
   const [chosen, setChosen] = useState(null); // an IMDb pick, with its poster
@@ -48,6 +52,22 @@ export default function Collection({ questionId, onBack }) {
     return () => clearTimeout(debounce.current);
   }, [title]);
 
+  // Thanking everyone is the normal case, so start with them all ticked.
+  useEffect(() => {
+    if (sheet?.kind !== 'hearts') return;
+    const already = new Set(
+      state.hearts
+        .filter((h) => h.questionId === questionId && h.movieId === sheet.movieId && h.fromUserId === state.meId)
+        .map((h) => h.toUserId)
+    );
+    const all = [...new Set(
+      state.recommendations
+        .filter((r) => r.questionId === questionId && r.movieId === sheet.movieId && r.userId !== state.meId)
+        .map((r) => r.userId)
+    )].filter((u) => !already.has(u));
+    setPicked(all);
+  }, [sheet?.kind, sheet?.movieId]);
+
   if (!q) return null;
 
   const closed = !isOpen(q);
@@ -68,10 +88,24 @@ export default function Collection({ questionId, onBack }) {
     setRemote([]); setChosen(null);
   };
 
+  const sheetTitle =
+    sheet?.kind === 'recommend' ? 'Pass on a good movie.'
+    : sheet?.kind === 'experience' ? 'After the credits.'
+    : sheet?.kind === 'hearts' ? 'Who helped you choose?'
+    : '';
+
   const preset = sheet?.kind === 'recommend' ? sheet.movieId : null;
   const known = resolveMovie(state, title);
   const onListAlready = known && list.find((r) => r.movieId === known.id);
   const matches = preset ? [] : searchMovies(state, title);
+
+  const alreadyThanked = new Set(
+    sheet?.kind === 'hearts'
+      ? state.hearts
+          .filter((h) => h.questionId === q.id && h.movieId === sheet.movieId && h.fromUserId === state.meId)
+          .map((h) => h.toUserId)
+      : []
+  );
 
   const heartCandidates = sheet?.kind === 'hearts'
     ? [...new Map(
@@ -178,8 +212,10 @@ export default function Collection({ questionId, onBack }) {
         {list.length ? (
           <View style={[st.grid, { gap }]}>
             {list.map((row, i) => (
+              <Animated.View key={row.movieId}
+                entering={FadeIn.delay(i * 45).duration(260)}
+                style={{ width: cardW }}>
               <MovieCard
-                key={row.movieId}
                 state={state} question={q} row={row} index={i}
                 closed={closed} isOp={isOp} width={cardW}
                 onWatch={() => run({ type: closed ? 'watch' : 'choose', questionId: q.id, movieId: row.movieId })}
@@ -191,6 +227,7 @@ export default function Collection({ questionId, onBack }) {
                 }}
                 onWhy={() => { setFocusMovie(row.movieId); setTab('reasons'); }}
               />
+              </Animated.View>
             ))}
           </View>
         ) : (
@@ -288,12 +325,9 @@ export default function Collection({ questionId, onBack }) {
       </ScrollView>
 
       {/* ── sheets ──────────────────────────────────────── */}
-      <Modal visible={!!sheet} transparent animationType="slide" onRequestClose={close}>
-        <View style={st.overlay}>
-          <ScrollView style={st.sheet} keyboardShouldPersistTaps="handled">
+      <Sheet visible={!!sheet} onClose={close} title={sheetTitle}>
             {sheet?.kind === 'recommend' && (
               <>
-                <Head title="Pass on a good movie." onClose={close} />
                 <Text style={F.small}>
                   Recommend a new movie or support an existing one. One recommendation per person,
                   per movie.
@@ -375,7 +409,6 @@ export default function Collection({ questionId, onBack }) {
 
             {sheet?.kind === 'experience' && (
               <>
-                <Head title="After the credits." onClose={close} />
                 <Text style={F.small}>
                   How was {findMovie(state, sheet.movieId).title}? This is what makes the
                   collection worth reading in a year.
@@ -411,55 +444,65 @@ export default function Collection({ questionId, onBack }) {
 
             {sheet?.kind === 'hearts' && (
               <>
-                <Head title="Who helped you choose?" onClose={close} />
                 <Text style={F.small}>
-                  Only the people who recommended {findMovie(state, sheet.movieId).title} are
-                  listed. A heart means their words changed what you watched.
+                  Everyone who recommended {findMovie(state, sheet.movieId).title} gets a heart.
+                  Untick anyone whose words didn’t actually reach you.
                 </Text>
                 {heartCandidates.length === 0 ? (
                   <View style={st.empty}><Text style={F.small}>Nobody else recommended this one.</Text></View>
                 ) : heartCandidates.map((r) => {
-                  const on = picked.includes(r.userId);
+                  const done = alreadyThanked.has(r.userId);
+                  const on = done || picked.includes(r.userId);
                   return (
                     <Pressable key={r.userId}
+                      disabled={done}
                       onPress={() => setPicked(on ? picked.filter((x) => x !== r.userId) : [...picked, r.userId])}
-                      style={[st.person, on && { borderColor: C.accent }]}>
+                      style={[st.person, on && { borderColor: C.accent }, done && { opacity: 0.6 }]}>
                       <Avatar name={findUser(state, r.userId).name} size={28} />
                       <View style={{ flex: 1 }}>
                         <Text style={st.username}>{findUser(state, r.userId).name}</Text>
                         <Text style={F.tiny} numberOfLines={1}>{r.text}</Text>
                       </View>
                       <Text style={{ color: on ? C.accent : C.dim, fontSize: 17 }}>♥</Text>
+                      {done && <Text style={st.thanked}>THANKED</Text>}
                     </Pressable>
                   );
                 })}
-                {heartCandidates.length > 0 && (
-                  <Btn small kind="ghost" title="♥ Heart everyone who recommended it"
-                    style={{ marginTop: S.md }}
-                    onPress={() => setPicked(heartCandidates.map((r) => r.userId))} />
-                )}
-                <Btn title="Give hearts" style={{ marginTop: S.lg }}
+                {heartCandidates.filter((r) => !alreadyThanked.has(r.userId)).length > 1 && (() => {
+                  const selectable = heartCandidates
+                    .map((r) => r.userId)
+                    .filter((u) => !alreadyThanked.has(u));
+                  const allOn = selectable.every((u) => picked.includes(u));
+                  return (
+                    <Btn small kind="ghost"
+                      title={allOn ? 'Thank just some of them' : '♥ Thank everyone who recommended it'}
+                      style={{ marginTop: S.md }}
+                      onPress={() => setPicked(allOn ? [] : selectable)} />
+                  );
+                })()}
+                <Btn
+                  title={picked.length === 0
+                    ? 'Pick at least one'
+                    : `Give ${picked.length} heart${picked.length === 1 ? '' : 's'}`}
+                  disabled={picked.length === 0}
+                  style={{ marginTop: S.lg }}
                   onPress={() => {
-                    if (run({ type: 'hearts', questionId: q.id, movieId: sheet.movieId, toUserIds: picked }).state) close();
+                    const res = run({ type: 'hearts', questionId: q.id, movieId: sheet.movieId, toUserIds: picked });
+                    if (res.state) { close(); setThanked(res.thanked || []); }
                   }} />
               </>
             )}
-            <View style={{ height: 40 }} />
-          </ScrollView>
-        </View>
-      </Modal>
+      </Sheet>
+
+      <Thanked
+        visible={!!thanked}
+        names={thanked || []}
+        onDone={() => setThanked(null)}
+      />
     </>
   );
 }
 
-const Head = ({ title, onClose }) => (
-  <View style={st.sheetHead}>
-    <Text style={[F.h1, { flex: 1, fontSize: 23 }]}>{title}</Text>
-    <Pressable onPress={onClose} hitSlop={12}>
-      <Text style={{ color: C.muted, fontSize: 22 }}>✕</Text>
-    </Pressable>
-  </View>
-);
 
 const Tag = ({ label }) => <View style={st.tag}><Text style={st.tagText}>{label}</Text></View>;
 
@@ -516,12 +559,6 @@ const st = StyleSheet.create({
     backgroundColor: C.input, borderWidth: 1, borderColor: C.line,
     borderRadius: S.radiusSm, padding: S.md, color: C.text, fontSize: 14, minHeight: 48,
   },
-  overlay: { flex: 1, backgroundColor: C.overlay, justifyContent: 'flex-end' },
-  sheet: {
-    backgroundColor: C.sheet, borderTopLeftRadius: 26, borderTopRightRadius: 26,
-    padding: S.xl, maxHeight: '92%', borderWidth: 1, borderColor: C.line,
-  },
-  sheetHead: { flexDirection: 'row', alignItems: 'flex-start', gap: S.md, marginBottom: S.sm },
   fieldLab: { fontSize: 12, fontWeight: '600', color: C.text, marginTop: S.lg, marginBottom: S.sm },
   hint: { fontSize: 10.5, color: C.dim, marginTop: S.sm, lineHeight: 15 },
   suggestItem: {
@@ -540,6 +577,7 @@ const st = StyleSheet.create({
   },
   rateN: { fontSize: 16, fontWeight: '800', color: C.text },
   rateL: { fontSize: 7.5, color: C.muted, textAlign: 'center', lineHeight: 10 },
+  thanked: { fontSize: 8, fontWeight: '800', color: C.accent, letterSpacing: 0.6, marginLeft: 6 },
   person: {
     flexDirection: 'row', alignItems: 'center', gap: S.md, marginTop: S.sm,
     borderWidth: 1, borderColor: C.line, borderRadius: 9, padding: S.md, minHeight: 56,

@@ -249,6 +249,60 @@ export function todo(s) {
   return out;
 }
 
+// Your own recommendations and how each one actually landed. Profile-only:
+// Discover shows the community, this shows you.
+export function myRecommendations(s, userId) {
+  const backers = new Map();
+  s.recommendations.forEach((r) => {
+    const k = r.questionId + '|' + r.movieId;
+    if (!backers.has(k)) backers.set(k, new Set());
+    backers.get(k).add(r.userId);
+  });
+
+  return s.recommendations
+    .filter((r) => r.userId === userId)
+    .map((r) => {
+      const k = r.questionId + '|' + r.movieId;
+      const followed = s.journeys.filter(
+        (j) => j.questionId === r.questionId && j.movieId === r.movieId && !backers.get(k).has(j.userId)
+      );
+      const rated = followed.filter((j) => j.status === 'finished' && Number.isFinite(j.rating));
+      const q = findQuestion(s, r.questionId);
+      return {
+        id: r.id,
+        movie: findMovie(s, r.movieId),
+        questionId: r.questionId,
+        question: q ? q.text : '',
+        isPick: q && q.opMovieId === r.movieId,
+        watched: followed.length,
+        finished: followed.filter((j) => j.status === 'finished').length,
+        rating: rated.length
+          ? Number((rated.reduce((a, j) => a + j.rating, 0) / rated.length).toFixed(1))
+          : null,
+        hearts: s.hearts.filter(
+          (h) => h.questionId === r.questionId && h.movieId === r.movieId && h.toUserId === userId
+        ).length,
+        createdAt: r.createdAt,
+      };
+    })
+    .sort((a, b) => b.hearts - a.hearts || b.watched - a.watched || b.createdAt - a.createdAt);
+}
+
+/** Films you finished, newest first, with the rating you gave. */
+export function myWatched(s, userId) {
+  return s.journeys
+    .filter((j) => j.userId === userId && j.status === 'finished')
+    .map((j) => ({
+      id: j.id,
+      movie: findMovie(s, j.movieId),
+      rating: j.rating,
+      text: j.text,
+      at: j.finishedAt || j.createdAt,
+      questionId: j.questionId,
+    }))
+    .sort((a, b) => b.at - a.at);
+}
+
 export function leaderboard(s) {
   return s.users
     .map((u) => ({ user: u, ...recommenderScore(s, u.id) }))
@@ -279,7 +333,7 @@ export function apply(state, action) {
         constraints: String(action.constraints || '').trim(),
         createdAt: Date.now(), closedAt: null, opMovieId: null, frozen: null,
       });
-      return { state: s, questionId: id, toast: 'Question posted.' };
+      return { state: s, questionId: id }; // the Posted overlay is the feedback
     }
 
     case 'suggest': {
@@ -377,19 +431,29 @@ export function apply(state, action) {
         (r) => r.questionId === action.questionId && r.movieId === action.movieId
       );
       const valid = new Set(recs.map((r) => r.userId));
-      let n = 0;
-      (action.toUserIds || []).forEach((to) => {
-        if (!valid.has(to) || to === s.meId) return;
-        if (s.hearts.some((h) =>
-          h.questionId === action.questionId && h.movieId === action.movieId &&
-          h.fromUserId === s.meId && h.toUserId === to)) return;
+      // you can only thank someone who recommended this film, and never yourself
+      const want = (action.toUserIds || []).filter((to) => valid.has(to) && to !== s.meId);
+      if (!want.length) return fail('Pick at least one person who helped you choose.');
+
+      const already = (to) => s.hearts.some((h) =>
+        h.questionId === action.questionId && h.movieId === action.movieId &&
+        h.fromUserId === s.meId && h.toUserId === to);
+
+      const fresh = want.filter((to) => !already(to));
+      if (!fresh.length) {
+        return fail(want.length === 1
+          ? `You already thanked ${findUser(s, want[0]).name}.`
+          : 'You already thanked everyone you picked.');
+      }
+
+      fresh.forEach((to) => {
         s.hearts.push({
           id: uid(), questionId: action.questionId, movieId: action.movieId,
           fromUserId: s.meId, toUserId: to, createdAt: Date.now(),
         });
-        n++;
       });
-      return { state: s, toast: n ? `${n} heart${n === 1 ? '' : 's'} given.` : 'No new hearts.' };
+      // no toast: the Thanked overlay is the feedback
+      return { state: s, thanked: fresh.map((to) => findUser(s, to).name.split(' ')[0]) };
     }
 
     case 'comment': {

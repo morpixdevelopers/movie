@@ -1,5 +1,7 @@
 import React, { useState } from 'react';
-import { View, Text, ScrollView, Pressable, StyleSheet, TextInput, Modal } from 'react-native';
+import { View, Text, Pressable, StyleSheet, TextInput } from 'react-native';
+import Animated, { FadeInDown, FadeIn } from 'react-native-reanimated';
+import Sheet from './Sheet';
 import { C, S, F } from '../theme';
 import { Btn } from '../ui';
 import { useStore } from '../store';
@@ -24,18 +26,16 @@ export default function AskSheet({ visible, onClose, onPosted }) {
     }
   };
 
-  return (
-    <Modal visible={visible} animationType="slide" transparent onRequestClose={onClose}>
-      <View style={st.overlay}>
-        <ScrollView style={st.sheet} keyboardShouldPersistTaps="handled">
-          <View style={st.head}>
-            <Text style={[F.h1, { flex: 1, fontSize: 23 }]}>What are you in the mood for?</Text>
-            <Pressable onPress={onClose} hitSlop={12}>
-              <Text style={{ color: C.muted, fontSize: 22 }}>✕</Text>
-            </Pressable>
-          </View>
-          <Text style={F.small}>A good question can help more than one movie night.</Text>
+  // each field drifts in just after the sheet lands, so it assembles itself
+  const step = (i) => FadeInDown.delay(70 + i * 45).duration(280);
 
+  return (
+    <Sheet visible={visible} onClose={onClose} title="What are you in the mood for?">
+      <Animated.View entering={FadeIn.delay(80)}>
+        <Text style={F.small}>A good question can help more than one movie night.</Text>
+      </Animated.View>
+
+      <Animated.View entering={step(0)}>
           <Text style={st.lab}>What are you looking for?</Text>
           <TextInput
             style={[st.input, { height: 90, textAlignVertical: 'top' }]}
@@ -49,7 +49,9 @@ export default function AskSheet({ visible, onClose, onPosted }) {
               ? `Good — ${text.trim().length}/240 characters.`
               : `${text.trim().length} of ${ASK_MIN} characters minimum — say what mood you are in.`}
           </Text>
+      </Animated.View>
 
+      <Animated.View entering={step(1)}>
           <Text style={st.lab}>Cinema</Text>
           <View style={st.opts}>
             {LANGS.map((l) => (
@@ -59,6 +61,9 @@ export default function AskSheet({ visible, onClose, onPosted }) {
             ))}
           </View>
 
+      </Animated.View>
+
+      <Animated.View entering={step(2)}>
           <Text style={st.lab}>Genre</Text>
           <View style={st.opts}>
             {GENRES.map((g) => (
@@ -68,6 +73,9 @@ export default function AskSheet({ visible, onClose, onPosted }) {
             ))}
           </View>
 
+      </Animated.View>
+
+      <Animated.View entering={step(3)}>
           <Text style={st.lab}>Anything else? · optional</Text>
           <TextInput
             style={st.input} maxLength={160}
@@ -76,6 +84,9 @@ export default function AskSheet({ visible, onClose, onPosted }) {
             value={extra} onChangeText={setExtra}
           />
 
+      </Animated.View>
+
+      <Animated.View entering={step(4)}>
           <View style={st.notice}>
             <Text style={st.noticeText}>
               When you choose a movie, suggestions close. The collection stays useful for everyone
@@ -84,20 +95,12 @@ export default function AskSheet({ visible, onClose, onPosted }) {
           </View>
 
           <Btn title="Ask the community ↗" onPress={post} />
-          <View style={{ height: 40 }} />
-        </ScrollView>
-      </View>
-    </Modal>
+      </Animated.View>
+    </Sheet>
   );
 }
 
 const st = StyleSheet.create({
-  overlay: { flex: 1, backgroundColor: C.overlay, justifyContent: 'flex-end' },
-  sheet: {
-    backgroundColor: C.sheet, borderTopLeftRadius: 26, borderTopRightRadius: 26,
-    padding: S.xl, maxHeight: '92%', borderWidth: 1, borderColor: C.line,
-  },
-  head: { flexDirection: 'row', alignItems: 'flex-start', gap: S.md, marginBottom: S.sm },
   lab: { fontSize: 12, fontWeight: '600', color: C.text, marginTop: S.lg, marginBottom: S.sm },
   input: {
     backgroundColor: C.input, borderWidth: 1, borderColor: C.line,

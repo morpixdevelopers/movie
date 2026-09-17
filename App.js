@@ -3,6 +3,10 @@ import {
   View, Text, Pressable, StyleSheet, StatusBar,
   Platform, ActivityIndicator, Modal, ScrollView, KeyboardAvoidingView,
 } from 'react-native';
+import Animated, {
+  FadeIn, FadeOut, SlideInDown, SlideOutDown,
+  useSharedValue, useAnimatedStyle, withSpring, withSequence,
+} from 'react-native-reanimated';
 // RN's own SafeAreaView is iOS-only, and Android draws edge-to-edge from
 // SDK 53 — this package gives real insets on both.
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
@@ -14,6 +18,7 @@ import Feed from './src/screens/Feed';
 import Discover from './src/screens/Discover';
 import Activity from './src/screens/Activity';
 import AskSheet from './src/components/AskSheet';
+import Posted from './src/components/Posted';
 import Collection from './src/screens/Collection';
 import Profile from './src/screens/Profile';
 
@@ -23,6 +28,7 @@ function Shell() {
   const [qid, setQid] = useState(null);
   const [switching, setSwitching] = useState(false);
   const [asking, setAsking] = useState(false);
+  const [posted, setPosted] = useState(null); // questionId awaiting the success moment
 
   if (!state) {
     return (
@@ -55,19 +61,41 @@ function Shell() {
         style={{ flex: 1 }}
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       >
-        {tab === 'feed' && <Feed onOpen={openThread} onAsk={() => setAsking(true)} />}
-        {tab === 'thread' && qid && (
-          <Collection questionId={qid} onBack={() => { setTab('feed'); setQid(null); }} />
+        {tab === 'feed' && (
+          <Animated.View key='feed' style={{ flex: 1 }} entering={FadeIn.duration(220)}>
+            <Feed onOpen={openThread} onAsk={() => setAsking(true)} />
+          </Animated.View>
         )}
-        {tab === 'discover' && <Discover onOpenProfile={() => setTab('profile')} />}
-        {tab === 'activity' && <Activity onOpen={openThread} onAsk={() => setAsking(true)} />}
-        {tab === 'profile' && <Profile />}
+        {tab === 'thread' && qid && (
+          <Animated.View key={qid} style={{ flex: 1 }} entering={FadeIn.duration(220)}>
+            <Collection questionId={qid} onBack={() => { setTab('feed'); setQid(null); }} />
+          </Animated.View>
+        )}
+        {tab === 'discover' && (
+          <Animated.View key='discover' style={{ flex: 1 }} entering={FadeIn.duration(220)}>
+            <Discover onOpenProfile={() => setTab('profile')} />
+          </Animated.View>
+        )}
+        {tab === 'activity' && (
+          <Animated.View key='activity' style={{ flex: 1 }} entering={FadeIn.duration(220)}>
+            <Activity onOpen={openThread} onAsk={() => setAsking(true)} />
+          </Animated.View>
+        )}
+        {tab === 'profile' && (
+          <Animated.View key='profile' style={{ flex: 1 }} entering={FadeIn.duration(220)}>
+            <Profile onOpen={openThread} />
+          </Animated.View>
+        )}
       </KeyboardAvoidingView>
 
       {!!(toast || error) && (
-        <View style={[st.toast, error && { backgroundColor: C.accent }]}>
+        <Animated.View
+          entering={SlideInDown.springify().damping(18).stiffness(180)}
+          exiting={FadeOut.duration(180)}
+          style={[st.toast, error && { backgroundColor: C.accent }]}
+        >
           <Text style={st.toastText}>{error || toast}</Text>
-        </View>
+        </Animated.View>
       )}
 
       <View style={st.nav}>
@@ -75,19 +103,23 @@ function Shell() {
           onPress={() => { setTab('feed'); setQid(null); }} />
         <NavBtn label="Discover" glyph="◈" on={tab === 'discover'}
           onPress={() => { setTab('discover'); setQid(null); }} />
-        <View style={st.askWrap}>
-          <Pressable onPress={() => setAsking(true)} accessibilityLabel="Ask a question"
-            style={({ pressed }) => [st.ask, pressed && { transform: [{ scale: 0.92 }] }]}>
-            <Text style={st.askGlyph}>＋</Text>
-          </Pressable>
-        </View>
+        <AskButton onPress={() => setAsking(true)} />
         <NavBtn label="Activity" glyph="♡" on={tab === 'activity'}
           onPress={() => { setTab('activity'); setQid(null); }} />
         <NavBtn label="Profile" glyph="◎" on={tab === 'profile'}
           onPress={() => setTab('profile')} />
       </View>
 
-      <AskSheet visible={asking} onClose={() => setAsking(false)} onPosted={openThread} />
+      <AskSheet
+        visible={asking}
+        onClose={() => setAsking(false)}
+        onPosted={(id) => setPosted(id)}
+      />
+
+      <Posted
+        visible={!!posted}
+        onDone={() => { const id = posted; setPosted(null); if (id) openThread(id); }}
+      />
 
       <Modal visible={switching} transparent animationType="fade" onRequestClose={() => setSwitching(false)}>
         <Pressable style={st.overlay} onPress={() => setSwitching(false)}>
@@ -109,6 +141,31 @@ function Shell() {
         </Pressable>
       </Modal>
     </SafeAreaView>
+  );
+}
+
+function AskButton({ onPress }) {
+  const scale = useSharedValue(1);
+  const style = useAnimatedStyle(() => ({ transform: [{ scale: scale.value }] }));
+  return (
+    <View style={st.askWrap}>
+      <Animated.View style={style}>
+        <Pressable
+          accessibilityLabel="Ask a question"
+          onPressIn={() => { scale.value = withSpring(0.88, { damping: 15, stiffness: 420 }); }}
+          onPressOut={() => {
+            scale.value = withSequence(
+              withSpring(1.08, { damping: 10, stiffness: 400 }),
+              withSpring(1, { damping: 14, stiffness: 300 }),
+            );
+          }}
+          onPress={onPress}
+          style={st.ask}
+        >
+          <Text style={st.askGlyph}>＋</Text>
+        </Pressable>
+      </Animated.View>
+    </View>
   );
 }
 

@@ -1,5 +1,21 @@
 import React from 'react';
 import { View, Text, Pressable, StyleSheet, Image } from 'react-native';
+import Animated, {
+  useSharedValue, useAnimatedStyle, withSpring, FadeIn,
+} from 'react-native-reanimated';
+
+const APressable = Animated.createAnimatedComponent(Pressable);
+
+// Springy press feedback, shared by every tappable surface.
+function usePress(to = 0.96) {
+  const s = useSharedValue(1);
+  const style = useAnimatedStyle(() => ({ transform: [{ scale: s.value }] }));
+  return {
+    style,
+    onPressIn: () => { s.value = withSpring(to, { damping: 16, stiffness: 420 }); },
+    onPressOut: () => { s.value = withSpring(1, { damping: 13, stiffness: 320 }); },
+  };
+}
 import { LinearGradient } from 'expo-linear-gradient';
 import { C, S, F, shadow } from './theme';
 import { initials } from './logic';
@@ -20,13 +36,16 @@ export function Btn({ title, onPress, kind = 'primary', small, style, disabled }
       {title}
     </Text>
   );
+  const press = usePress(0.965);
   const shell = [st.btn, small && st.btnSm, disabled && { opacity: 0.4 }, style];
 
   if (kind === 'primary') {
     return (
-      <Pressable
+      <APressable
         onPress={disabled ? undefined : onPress}
-        style={({ pressed }) => [...shell, pressed && !disabled && st.pressed]}
+        onPressIn={disabled ? undefined : press.onPressIn}
+        onPressOut={disabled ? undefined : press.onPressOut}
+        style={[...shell, press.style]}
         accessibilityRole="button"
       >
         <LinearGradient
@@ -36,33 +55,41 @@ export function Btn({ title, onPress, kind = 'primary', small, style, disabled }
           style={[StyleSheet.absoluteFill, { borderRadius: S.radiusSm }]}
         />
         {inner}
-      </Pressable>
+      </APressable>
     );
   }
   return (
-    <Pressable
+    <APressable
       onPress={disabled ? undefined : onPress}
-      style={({ pressed }) => [
-        ...shell,
-        { backgroundColor: C.panel, borderWidth: 1, borderColor: C.line },
-        pressed && !disabled && st.pressed,
-      ]}
+      onPressIn={disabled ? undefined : press.onPressIn}
+      onPressOut={disabled ? undefined : press.onPressOut}
+      style={[...shell, { backgroundColor: C.panel, borderWidth: 1, borderColor: C.line }, press.style]}
       accessibilityRole="button"
     >
       {inner}
-    </Pressable>
+    </APressable>
   );
 }
 
-export function Card({ children, style, level = 1, onPress }) {
-  const Comp = onPress ? Pressable : View;
+export function Card({ children, style, level = 1, onPress, entering }) {
+  const press = usePress(0.985);
+  if (!onPress) {
+    return (
+      <Animated.View entering={entering} style={[st.card, shadow(level), style]}>
+        {children}
+      </Animated.View>
+    );
+  }
   return (
-    <Comp
+    <APressable
       onPress={onPress}
-      style={({ pressed } = {}) => [st.card, shadow(level), pressed && st.pressed, style]}
+      onPressIn={press.onPressIn}
+      onPressOut={press.onPressOut}
+      entering={entering}
+      style={[st.card, shadow(level), style, press.style]}
     >
       {children}
-    </Comp>
+    </APressable>
   );
 }
 
@@ -73,7 +100,12 @@ export function Poster({ movie, style, radius = S.radiusSm, children, width = 40
   return (
     <View style={[{ backgroundColor: movie.color || C.panelHi, borderRadius: radius, overflow: 'hidden' }, style]}>
       {!!src && (
-        <Image source={{ uri: src }} style={StyleSheet.absoluteFill} resizeMode="cover" />
+        <Animated.Image
+          entering={FadeIn.duration(320)}
+          source={{ uri: src }}
+          style={StyleSheet.absoluteFill}
+          resizeMode="cover"
+        />
       )}
       <LinearGradient
         colors={['transparent', 'rgba(10,13,20,0.15)', 'rgba(10,13,20,0.88)']}
@@ -133,6 +165,8 @@ export function SectionHead({ title, action, onAction, sub }) {
     </View>
   );
 }
+
+export { usePress };
 
 const st = StyleSheet.create({
   btn: {

@@ -1,25 +1,25 @@
 import React from 'react';
-import { View, Text, ScrollView, StyleSheet } from 'react-native';
+import { View, Text, ScrollView, Pressable, StyleSheet } from 'react-native';
 import { C, S, F } from '../theme';
-import { Avatar, Label, Rule, Stat, Btn } from '../ui';
+import { Avatar, Rule, Stat, Btn, Poster, SectionHead } from '../ui';
 import { useStore } from '../store';
-import { recommenderScore, leaderboard, findUser } from '../logic';
+import {
+  recommenderScore, myRecommendations, myWatched, findUser, ago,
+} from '../logic';
 
-export default function Profile() {
+export default function Profile({ onOpen }) {
   const { state, reset } = useStore();
   const me = findUser(state, state.meId);
   const score = recommenderScore(state, state.meId);
-  const board = leaderboard(state);
-  const finished = state.journeys.filter(
-    (j) => j.userId === state.meId && j.status === 'finished'
-  ).length;
+  const mine = myRecommendations(state, state.meId);
+  const watched = myWatched(state, state.meId);
 
   return (
-    <ScrollView contentContainerStyle={st.page}>
+    <ScrollView contentContainerStyle={st.page} showsVerticalScrollIndicator={false}>
       <View style={st.head}>
-        <Avatar name={me.name} size={52} />
+        <Avatar name={me.name} size={56} />
         <View style={{ flex: 1 }}>
-          <Text style={F.h2}>{me.name}</Text>
+          <Text style={F.h1}>{me.name}</Text>
           <Text style={F.small}>
             {score.avg !== null
               ? `★ ${score.avg} average from ${score.ratings} rating${score.ratings === 1 ? '' : 's'}`
@@ -37,39 +37,66 @@ export default function Profile() {
       </View>
       <View style={[st.stats, { marginTop: S.lg }]}>
         <Stat value={score.hearts} caption="Helpful hearts" accent={score.hearts > 0} />
-        <Stat value={finished} caption="Movies you finished" />
+        <Stat value={watched.length} caption="Movies you finished" />
         <Stat value="" caption="" />
       </View>
 
       <Rule style={{ marginVertical: S.xl }} />
 
-      <Label style={{ color: C.accent }}>Reputation</Label>
-      <Text style={[F.h2, { marginTop: S.sm }]}>Top recommenders</Text>
-      <Text style={[F.small, { marginTop: 6, marginBottom: S.lg }]}>
-        A heart is only earned when someone watched the movie and said it helped. Ratings from
-        people who also recommended it don’t count — they didn’t discover it on anyone’s word.
-      </Text>
+      <SectionHead
+        title="Your recommendations"
+        sub="How each one actually landed"
+      />
+      {mine.length === 0 ? (
+        <Text style={F.small}>
+          You haven’t recommended anything yet. Open a question and put a movie forward.
+        </Text>
+      ) : (
+        mine.map((r) => (
+          <Pressable key={r.id} onPress={() => onOpen?.(r.questionId)} style={st.row}>
+            <Poster movie={r.movie} style={st.thumb} width={200} />
+            <View style={{ flex: 1 }}>
+              <View style={st.titleRow}>
+                <Text style={st.name} numberOfLines={1}>{r.movie.title}</Text>
+                {r.isPick && <Text style={st.picked}>ASKER’S PICK</Text>}
+              </View>
+              <Text style={F.tiny} numberOfLines={1}>{r.question}</Text>
+              <Text style={st.outcome}>
+                {r.watched === 0
+                  ? 'Nobody has watched it yet'
+                  : `${r.watched} watched · ${r.finished} finished${r.rating ? ` · ★ ${r.rating}` : ''}`}
+              </Text>
+            </View>
+            {r.hearts > 0 && <Text style={st.hearts}>♥ {r.hearts}</Text>}
+          </Pressable>
+        ))
+      )}
 
-      {board.map((row, i) => (
-        <View key={row.user.id} style={st.row}>
-          <Text style={st.rank}>{String(i + 1).padStart(2, '0')}</Text>
-          <Avatar name={row.user.name} size={32} />
-          <View style={{ flex: 1 }}>
-            <Text style={st.name}>
-              {row.user.name}
-              {row.user.id === state.meId ? '  · you' : ''}
-            </Text>
-            <Text style={F.tiny}>
-              {row.recommended} rec{row.recommended === 1 ? '' : 's'} · {row.watches} watched
-              {row.avg !== null ? ` · ★ ${row.avg}` : ''}
-            </Text>
-          </View>
-          <Text style={st.hearts}>♥ {row.hearts}</Text>
-        </View>
-      ))}
+      <Rule style={{ marginVertical: S.xl }} />
+
+      <SectionHead title="What you watched" sub="Your own verdicts" />
+      {watched.length === 0 ? (
+        <Text style={F.small}>
+          Nothing finished yet. Pick a movie from a closed collection and rate it afterwards.
+        </Text>
+      ) : (
+        watched.map((w) => (
+          <Pressable key={w.id} onPress={() => onOpen?.(w.questionId)} style={st.row}>
+            <Poster movie={w.movie} style={st.thumb} width={200} />
+            <View style={{ flex: 1 }}>
+              <Text style={st.name} numberOfLines={1}>{w.movie.title}</Text>
+              <Text style={F.tiny}>{ago(w.at)}</Text>
+              {!!w.text && (
+                <Text style={st.quote} numberOfLines={2}>“{w.text}”</Text>
+              )}
+            </View>
+            <Text style={st.rating}>★ {w.rating}</Text>
+          </Pressable>
+        ))
+      )}
 
       <Btn kind="ghost" title="Reset to the seeded scenario" onPress={reset} style={{ marginTop: S.xxl }} />
-      <View style={{ height: 90 }} />
+      <View style={{ height: 40 }} />
     </ScrollView>
   );
 }
@@ -80,9 +107,14 @@ const st = StyleSheet.create({
   stats: { flexDirection: 'row', gap: S.md },
   row: {
     flexDirection: 'row', alignItems: 'center', gap: S.md,
-    paddingVertical: S.md, borderBottomWidth: 1, borderBottomColor: C.line,
+    paddingVertical: S.md, borderBottomWidth: 1, borderBottomColor: C.lineSoft,
   },
-  rank: { width: 22, fontSize: 13, fontWeight: '800', color: C.accent },
-  name: { fontSize: 13.5, fontWeight: '700', color: C.text },
-  hearts: { fontSize: 13, color: C.accent, fontWeight: '700' },
+  thumb: { width: 44, height: 62 },
+  titleRow: { flexDirection: 'row', alignItems: 'center', gap: 7 },
+  name: { fontSize: 14, fontWeight: '800', color: C.text, flexShrink: 1 },
+  picked: { fontSize: 8, fontWeight: '800', color: C.accent, letterSpacing: 0.6 },
+  outcome: { fontSize: 11.5, color: C.accent, marginTop: 3, fontWeight: '700' },
+  quote: { fontSize: 11.5, color: C.muted, marginTop: 3, fontStyle: 'italic' },
+  hearts: { fontSize: 13, color: C.accent, fontWeight: '800' },
+  rating: { fontSize: 13, color: C.amber, fontWeight: '800' },
 });
