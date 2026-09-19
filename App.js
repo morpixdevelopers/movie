@@ -1,7 +1,7 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View, Text, Pressable, StyleSheet, StatusBar,
-  Platform, ActivityIndicator, Modal, ScrollView, KeyboardAvoidingView,
+  Platform, ActivityIndicator, Modal, ScrollView, Keyboard,
 } from 'react-native';
 import Animated, {
   FadeIn, FadeOut, SlideInDown, SlideOutDown,
@@ -18,6 +18,7 @@ import Feed from './src/screens/Feed';
 import Discover from './src/screens/Discover';
 import Activity from './src/screens/Activity';
 import AskSheet from './src/components/AskSheet';
+import AskKind from './src/components/AskKind';
 import Posted from './src/components/Posted';
 import Collection from './src/screens/Collection';
 import Profile from './src/screens/Profile';
@@ -27,8 +28,17 @@ function Shell() {
   const [tab, setTab] = useState('feed');
   const [qid, setQid] = useState(null);
   const [switching, setSwitching] = useState(false);
-  const [asking, setAsking] = useState(false);
+  const [choosing, setChoosing] = useState(false);  // the ＋ fork
+  const [asking, setAsking] = useState(null);       // 'open' | 'poll'
   const [posted, setPosted] = useState(null); // questionId awaiting the success moment
+  const [kb, setKb] = useState(0);
+  useEffect(() => {
+    const showEvt = Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow';
+    const hideEvt = Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide';
+    const show = Keyboard.addListener(showEvt, (e) => setKb(e.endCoordinates?.height || 0));
+    const hide = Keyboard.addListener(hideEvt, () => setKb(0));
+    return () => { show.remove(); hide.remove(); };
+  }, []);
 
   if (!state) {
     return (
@@ -57,13 +67,10 @@ function Shell() {
         </Pressable>
       </View>
 
-      <KeyboardAvoidingView
-        style={{ flex: 1 }}
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-      >
+      <View style={{ flex: 1, paddingBottom: kb }}>
         {tab === 'feed' && (
           <Animated.View key='feed' style={{ flex: 1 }} entering={FadeIn.duration(220)}>
-            <Feed onOpen={openThread} onAsk={() => setAsking(true)} />
+            <Feed onOpen={openThread} onAsk={() => setChoosing(true)} />
           </Animated.View>
         )}
         {tab === 'thread' && qid && (
@@ -78,7 +85,7 @@ function Shell() {
         )}
         {tab === 'activity' && (
           <Animated.View key='activity' style={{ flex: 1 }} entering={FadeIn.duration(220)}>
-            <Activity onOpen={openThread} onAsk={() => setAsking(true)} />
+            <Activity onOpen={openThread} onAsk={() => setChoosing(true)} />
           </Animated.View>
         )}
         {tab === 'profile' && (
@@ -86,7 +93,7 @@ function Shell() {
             <Profile onOpen={openThread} />
           </Animated.View>
         )}
-      </KeyboardAvoidingView>
+      </View>
 
       {!!(toast || error) && (
         <Animated.View
@@ -103,16 +110,23 @@ function Shell() {
           onPress={() => { setTab('feed'); setQid(null); }} />
         <NavBtn label="Discover" glyph="◈" on={tab === 'discover'}
           onPress={() => { setTab('discover'); setQid(null); }} />
-        <AskButton onPress={() => setAsking(true)} />
+        <AskButton onPress={() => setChoosing(true)} />
         <NavBtn label="Activity" glyph="♡" on={tab === 'activity'}
           onPress={() => { setTab('activity'); setQid(null); }} />
         <NavBtn label="Profile" glyph="◎" on={tab === 'profile'}
           onPress={() => setTab('profile')} />
       </View>
 
+      <AskKind
+        visible={choosing}
+        onClose={() => setChoosing(false)}
+        onPick={(k) => { setChoosing(false); setTimeout(() => setAsking(k), 220); }}
+      />
+
       <AskSheet
-        visible={asking}
-        onClose={() => setAsking(false)}
+        visible={!!asking}
+        kind={asking || 'open'}
+        onClose={() => setAsking(null)}
         onPosted={(id) => setPosted(id)}
       />
 

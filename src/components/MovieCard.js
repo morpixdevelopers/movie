@@ -6,12 +6,21 @@ import { findMovie, metrics, myJourney } from '../logic';
 
 // Mirrors .movie-card in app.html: poster with rank + original-pick label,
 // title block, recommender count, watching/finished stats, average, actions.
-export default function MovieCard({ state, question, row, index, closed, isOp, onWatch, onSupport, onFinish, onWhy, width }) {
+export default function MovieCard({ state, question, row, index, closed, isOp, poll, onWatch, onSupport, onFinish, onWhy, width }) {
   const item = findMovie(state, row.movieId);
   const mt = metrics(state, question.id, row.movieId);
   const journey = myJourney(state, question.id, row.movieId);
   const supported = state.recommendations.some(
     (r) => r.questionId === question.id && r.movieId === row.movieId && r.userId === state.meId
+  );
+  // anyone else who put this film forward, and whether you've thanked them yet
+  const backers = new Set(
+    state.recommendations
+      .filter((r) => r.questionId === question.id && r.movieId === row.movieId && r.userId !== state.meId)
+      .map((r) => r.userId)
+  );
+  const thanked = state.hearts.some(
+    (h) => h.questionId === question.id && h.movieId === row.movieId && h.fromUserId === state.meId
   );
 
   return (
@@ -32,7 +41,11 @@ export default function MovieCard({ state, question, row, index, closed, isOp, o
           {item.year} · {item.language}{'\n'}{item.runtime} min
         </Text>
 
-        <Text style={st.recCount}>♧ {row.count} recommended</Text>
+        <Text style={st.recCount}>
+          {poll
+            ? `◉ ${row.count} ${row.count === 1 ? 'vote' : 'votes'}`
+            : `♧ ${row.count} recommended`}
+        </Text>
 
         <View style={st.stats}>
           <View style={st.stat}>
@@ -58,9 +71,22 @@ export default function MovieCard({ state, question, row, index, closed, isOp, o
           </>
         ) : journey?.status === 'finished' ? (
           <>
-            <Btn small kind="ghost" title="Edit my experience" onPress={onFinish} />
-            <Text style={st.note}>✓ You finished this</Text>
+            <Text style={st.done}>Thanks for watching</Text>
+            <Text style={st.doneSub}>
+              {Number.isFinite(journey.rating) ? `You gave it ${journey.rating}/5` : 'Marked as finished'}
+              {thanked ? ' · hearts sent' : ''}
+            </Text>
+            {backers.size > 0 && !thanked && (
+              <Btn small title="♥ Thank who recommended it" onPress={onFinish}
+                style={{ marginTop: S.sm }} />
+            )}
           </>
+        ) : poll ? (
+          <Btn
+            small
+            title={mt.watching > 0 ? 'I’m watching this too' : 'I’m going to watch this'}
+            onPress={onWatch}
+          />
         ) : closed || isOp ? (
           <>
             <Btn
@@ -127,5 +153,7 @@ const st = StyleSheet.create({
   statL: { fontSize: 9, color: C.muted },
   avg: { fontSize: 10, color: C.amber, marginVertical: 9, minHeight: 26, lineHeight: 14 },
   note: { textAlign: 'center', color: C.accent, fontSize: 10, marginTop: 8, lineHeight: 15 },
+  done: { textAlign: 'center', color: C.accent, fontSize: 12, fontWeight: '800', marginTop: 8 },
+  doneSub: { textAlign: 'center', color: C.muted, fontSize: 10, marginTop: 2, lineHeight: 14 },
   link: { color: C.accent, fontSize: 10, textAlign: 'center', marginTop: 9 },
 });

@@ -1,5 +1,7 @@
-import React, { useEffect } from 'react';
-import { View, Text, Pressable, StyleSheet, Modal, ScrollView, Dimensions } from 'react-native';
+import React, { useEffect, useState } from 'react';
+import {
+  View, Text, Pressable, StyleSheet, Modal, ScrollView, Dimensions, Platform, Keyboard,
+} from 'react-native';
 import Animated, {
   useSharedValue, useAnimatedStyle, withSpring, withTiming, runOnJS,
 } from 'react-native-reanimated';
@@ -14,6 +16,18 @@ export default function Sheet({ visible, onClose, title, children }) {
   const y = useSharedValue(H);
   const fade = useSharedValue(0);
   const [mounted, setMounted] = React.useState(visible);
+  // The sheet lives in a Modal, so App's layout can't lift it, and neither
+  // useAnimatedKeyboard nor KeyboardAvoidingView report anything on Android
+  // inside Expo Go (the window never resizes). Keyboard events always fire,
+  // so measure the height there and pad the container by it.
+  const [kb, setKb] = useState(0);
+  useEffect(() => {
+    const showEvt = Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow';
+    const hideEvt = Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide';
+    const show = Keyboard.addListener(showEvt, (e) => setKb(e.endCoordinates?.height || 0));
+    const hide = Keyboard.addListener(hideEvt, () => setKb(0));
+    return () => { show.remove(); hide.remove(); };
+  }, []);
 
   useEffect(() => {
     if (visible) {
@@ -36,12 +50,12 @@ export default function Sheet({ visible, onClose, title, children }) {
 
   return (
     <Modal visible transparent animationType="none" onRequestClose={onClose} statusBarTranslucent>
-      <View style={st.root}>
+      <View style={[st.root, { paddingBottom: kb }]}>
         <Animated.View style={[StyleSheet.absoluteFill, st.backdrop, backdrop]}>
           <Pressable style={StyleSheet.absoluteFill} onPress={onClose} />
         </Animated.View>
 
-        <Animated.View style={[st.card, shadow(3), card]}>
+        <Animated.View style={[st.card, { maxHeight: H * 0.92 - kb }, shadow(3), card]}>
           <View style={st.grabber} />
           {!!title && (
             <View style={st.head}>
@@ -53,7 +67,9 @@ export default function Sheet({ visible, onClose, title, children }) {
           )}
           <ScrollView
             keyboardShouldPersistTaps="handled"
+            keyboardDismissMode="on-drag"
             showsVerticalScrollIndicator={false}
+            automaticallyAdjustKeyboardInsets={Platform.OS === 'ios'}
             contentContainerStyle={{ paddingBottom: 36 }}
           >
             {children}
@@ -71,7 +87,6 @@ const st = StyleSheet.create({
     backgroundColor: C.sheet,
     borderTopLeftRadius: 26, borderTopRightRadius: 26,
     paddingHorizontal: S.xl, paddingBottom: S.sm,
-    maxHeight: '92%',
   },
   grabber: {
     width: 40, height: 4, borderRadius: 2, backgroundColor: C.line,

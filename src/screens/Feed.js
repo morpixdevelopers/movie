@@ -1,9 +1,10 @@
 import React, { useState } from 'react';
-import { View, Text, ScrollView, Pressable, StyleSheet, TextInput } from 'react-native';
+import { View, Text, ScrollView, Pressable, StyleSheet, TextInput, Platform } from 'react-native';
 import { C, S, F, shadow } from '../theme';
 import { Btn, Avatar, Card, Poster, Chip, SectionHead } from '../ui';
+import PollCard from '../components/PollCard';
 import { useStore } from '../store';
-import { rows, isOpen, findUser, findMovie, ago, movieBoard, todo } from '../logic';
+import { rows, isOpen, findUser, findMovie, ago, movieBoard, todo, isPoll } from '../logic';
 
 const TABS = [
   ['all', 'All'],
@@ -12,7 +13,7 @@ const TABS = [
 ];
 
 export default function Feed({ onOpen, onAsk }) {
-  const { state } = useStore();
+  const { state, run } = useStore();
   const [query, setQuery] = useState('');
   const [filter, setFilter] = useState('all');
 
@@ -33,6 +34,8 @@ export default function Feed({ onOpen, onAsk }) {
     <ScrollView
       contentContainerStyle={{ paddingBottom: 40 }}
       keyboardShouldPersistTaps="handled"
+      keyboardDismissMode="on-drag"
+      automaticallyAdjustKeyboardInsets={Platform.OS === 'ios'}
       showsVerticalScrollIndicator={false}
     >
       <View style={st.top}>
@@ -112,6 +115,17 @@ export default function Feed({ onOpen, onAsk }) {
           </Card>
         ) : (
           list.map((q) => {
+            if (isPoll(q)) {
+              return (
+                <PollCard
+                  key={q.id}
+                  state={state}
+                  question={q}
+                  onVote={(movieId, text) => run({ type: 'vote', questionId: q.id, movieId, text })}
+                  onOpen={() => onOpen(q.id)}
+                />
+              );
+            }
             const picks = rows(state, q);
             const people = new Set(
               state.recommendations.filter((r) => r.questionId === q.id).map((r) => r.userId)
@@ -138,11 +152,13 @@ export default function Feed({ onOpen, onAsk }) {
 
                 <Text style={st.qTitle}>{q.text}</Text>
 
-                <View style={st.chips}>
-                  <Chip label={q.lang} solid />
-                  <Chip label={q.genre} solid />
-                  {!!q.constraints && <Chip label={q.constraints} />}
-                </View>
+                {(q.lang || q.genre || q.constraints) && (
+                  <View style={st.chips}>
+                    {!!q.lang && <Chip label={q.lang} solid />}
+                    {!!q.genre && <Chip label={q.genre} solid />}
+                    {!!q.constraints && <Chip label={q.constraints} />}
+                  </View>
+                )}
 
                 {picks.length > 0 && (
                   <View style={st.strip}>

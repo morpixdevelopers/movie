@@ -8,6 +8,8 @@
 
 export const OPEN_DAYS = 7;
 export const ASK_MIN = 10;
+export const POLL_MIN = 2;
+export const POLL_MAX = 6;
 
 export const slugify = (s) =>
   String(s || '').toLowerCase().trim().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
@@ -75,6 +77,10 @@ export function rows(s, q) {
     }));
   }
   const g = {};
+  // a poll's options exist whether or not anyone has voted for them
+  if (q.kind === 'poll' && Array.isArray(q.options)) {
+    q.options.forEach((mid) => { g[mid] = { movieId: mid, users: new Set(), recs: [] }; });
+  }
   s.recommendations
     .filter((r) => r.questionId === q.id)
     .forEach((r) => {
@@ -82,13 +88,21 @@ export function rows(s, q) {
       g[r.movieId].users.add(r.userId);
       g[r.movieId].recs.push(r);
     });
-  return Object.values(g)
-    .map((x) => ({ movieId: x.movieId, count: x.users.size, recs: x.recs }))
-    .sort(
-      (a, b) =>
-        b.count - a.count ||
-        findMovie(s, a.movieId).title.localeCompare(findMovie(s, b.movieId).title)
-    );
+
+  const out = Object.values(g).map((x) => ({ movieId: x.movieId, count: x.users.size, recs: x.recs }));
+
+  if (q.kind === 'poll') {
+    // ties fall back to the order the asker listed them in
+    const order = new Map((q.options || []).map((m, i) => [m, i]));
+    return out.sort((a, b) =>
+      b.count - a.count ||
+      (order.get(a.movieId) ?? 99) - (order.get(b.movieId) ?? 99));
+  }
+  return out.sort(
+    (a, b) =>
+      b.count - a.count ||
+      findMovie(s, a.movieId).title.localeCompare(findMovie(s, b.movieId).title)
+  );
 }
 
 export function metrics(s, qid, mid) {
@@ -310,6 +324,39 @@ export function leaderboard(s) {
     .sort((a, b) => b.hearts - a.hearts || (b.avg || 0) - (a.avg || 0) || b.watches - a.watches);
 }
 
+/**
+ * Resolve a typed title (plus any IMDb metadata) to a movie in state,
+ * creating it if new. Shared by suggestions and poll options so the two can
+ * never disagree about what counts as the same film.
+ */
+export function ensureMovie(s, { title, imdbId, posterUrl, year, language }, fallbackLang) {
+  const name = String(title || '').trim();
+  if (!name) return null;
+  // an IMDb id is authoritative — two spellings can never open two cards
+  let entry = (imdbId && s.movies.find((m) => m.imdbId === imdbId)) || resolveMovie(s, name);
+  const id = entry ? entry.id : slugify(name);
+  if (!id) return null;
+  if (!entry) {
+    entry = {
+      id, title: name, year: year || '', genre: '',
+      language: language || fallbackLang, lang: fallbackLang,
+      aliases: [name.toLowerCase()],
+      imdbId: imdbId ?? undefined,
+      posterUrl: posterUrl ?? undefined,
+    };
+    s.movies.push(entry);
+  } else {
+    if (posterUrl && !entry.posterUrl) entry.posterUrl = posterUrl;
+    if (imdbId && !entry.imdbId) entry.imdbId = imdbId;
+    if (year && !entry.year) entry.year = year;
+  }
+  return entry;
+}
+
+export const isPoll = (q) => q && q.kind === 'poll';
+export const myVote = (s, qid) =>
+  s.recommendations.find((r) => r.questionId === qid && r.userId === s.meId);
+
 // ── mutations ────────────────────────────────────────────────────────────
 // Every write goes through apply(). It returns {state} on success or {error}
 // on refusal, so the UI never has to repeat a rule. These are the same
@@ -326,18 +373,34 @@ export function apply(state, action) {
       if (!body) return fail('Write what you are looking for.');
       if (body.length < ASK_MIN)
         return fail(`Too short — ${body.length} of ${ASK_MIN} characters.`);
+      const kind = action.kind === 'poll' ? 'poll' : 'open';
+      let options = [];
+      if (kind === 'poll') {
+        const raw = Array.isArray(action.options) ? action.options : [];
+        const ids = [];
+        raw.forEach((o) => {
+          const entry = ensureMovie(s, typeof o === 'string' ? { title: o } : o, action.lang);
+          if (entry && !ids.includes(entry.id)) ids.push(entry.id);
+        });
+        if (ids.length < 2) return fail('A poll needs at least 2 movies to choose between.');
+        if (ids.length > POLL_MAX) return fail(`${POLL_MAX} options is the most a poll can hold.`);
+        options = ids;
+      }
+
       const id = uid();
       s.questions.unshift({
-        id, userId: s.meId, text: body,
+        id, userId: s.meId, text: body, kind, options,
         lang: action.lang, genre: action.genre,
         constraints: String(action.constraints || '').trim(),
         createdAt: Date.now(), closedAt: null, opMovieId: null, frozen: null,
       });
-      return { state: s, questionId: id }; // the Posted overlay is the feedback
+      return { state: s, questionId: id, kind }; // the Posted overlay is the feedback
     }
 
     case 'suggest': {
       if (!q) return fail('Question not found.');
+      if (q.kind === 'poll')
+        return fail('This is a poll — pick one of the options instead.');
       if (!isOpen(q))
         return fail('Suggestions are closed. The list is frozen — but you can still pick from it.');
       const title = String(action.title || '').trim();
@@ -373,9 +436,40 @@ export function apply(state, action) {
       s.recommendations.push({
         id: uid(), questionId: q.id, movieId, userId: s.meId, text: body, createdAt: Date.now(),
       });
+      const backers = new Set(
+        s.recommendations.filter((r) => r.questionId === q.id && r.movieId === movieId).map((r) => r.userId)
+      ).size;
+      // no toast: the Recommended overlay is the feedback
+      return { state: s, movieId, joined, count: backers };
+    }
+
+    case 'vote': {
+      if (!q) return fail('Question not found.');
+      if (q.kind !== 'poll') return fail('This question takes recommendations, not votes.');
+      if (!isOpen(q)) return fail('Voting closed — but you can still pick any movie on the list.');
+      if (q.userId === s.meId) return fail('You are the one asking. Let other people decide.');
+      if (!(q.options || []).includes(action.movieId))
+        return fail('That is not one of the options.');
+
+      const prev = s.recommendations.find((r) => r.questionId === q.id && r.userId === s.meId);
+      if (prev && prev.movieId === action.movieId && !action.text)
+        return fail(`You already voted for ${findMovie(s, action.movieId).title}.`);
+
+      // one vote each — changing your mind replaces it, never adds
+      s.recommendations = s.recommendations.filter(
+        (r) => !(r.questionId === q.id && r.userId === s.meId)
+      );
+      s.recommendations.push({
+        id: uid(), questionId: q.id, movieId: action.movieId, userId: s.meId,
+        text: String(action.text || '').trim(), createdAt: Date.now(),
+      });
+      const tally = new Set(
+        s.recommendations.filter((r) => r.questionId === q.id && r.movieId === action.movieId)
+          .map((r) => r.userId)
+      ).size;
       return {
-        state: s, movieId,
-        toast: joined ? `Joined the ${entry.title} recommendation.` : `${entry.title} added to the list.`,
+        state: s, movieId: action.movieId, count: tally,
+        changed: !!prev && prev.movieId !== action.movieId,
       };
     }
 

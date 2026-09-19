@@ -1,10 +1,12 @@
 import React, { useState, useEffect, useRef } from 'react';
 import {
-  View, Text, ScrollView, Pressable, StyleSheet, TextInput, useWindowDimensions,
+  View, Text, ScrollView, Pressable, StyleSheet, TextInput, useWindowDimensions, Platform,
 } from 'react-native';
 import Animated, { FadeInDown, FadeIn } from 'react-native-reanimated';
 import Sheet from '../components/Sheet';
 import Thanked from '../components/Thanked';
+import Recommended from '../components/Recommended';
+import PollBoard from '../components/PollBoard';
 import { C, S, F, shadow } from '../theme';
 import { Btn, Avatar, Poster } from '../ui';
 import { useStore } from '../store';
@@ -12,7 +14,7 @@ import MovieCard from '../components/MovieCard';
 import { searchTitles, hasPosters } from '../posters';
 import {
   rows, isOpen, findUser, findMovie, ago, searchMovies, resolveMovie,
-  recommenderScore, metrics, myJourney,
+  recommenderScore, metrics, myJourney, isPoll,
 } from '../logic';
 
 const RATING_LABELS = ['Didn’t like it', 'Meh', 'Decent', 'Really good', 'Loved it'];
@@ -31,6 +33,7 @@ export default function Collection({ questionId, onBack }) {
   const [picked, setPicked] = useState([]);
   const [comment, setComment] = useState('');
   const [thanked, setThanked] = useState(null); // names awaiting the hearts animation
+  const [added, setAdded] = useState(null);     // movie awaiting the recommend animation
   const [remote, setRemote] = useState([]);
   const [looking, setLooking] = useState(false);
   const [chosen, setChosen] = useState(null); // an IMDb pick, with its poster
@@ -71,6 +74,7 @@ export default function Collection({ questionId, onBack }) {
   if (!q) return null;
 
   const closed = !isOpen(q);
+  const poll = isPoll(q);
   const list = rows(state, q);
   const isOp = q.userId === state.meId;
   const author = findUser(state, q.userId);
@@ -90,7 +94,7 @@ export default function Collection({ questionId, onBack }) {
 
   const sheetTitle =
     sheet?.kind === 'recommend' ? 'Pass on a good movie.'
-    : sheet?.kind === 'experience' ? 'After the credits.'
+    : sheet?.kind === 'experience' ? 'Was it a good watch?'
     : sheet?.kind === 'hearts' ? 'Who helped you choose?'
     : '';
 
@@ -107,6 +111,13 @@ export default function Collection({ questionId, onBack }) {
       : []
   );
 
+  const stakers = sheet?.kind === 'experience'
+    ? new Set(
+        recs.filter((r) => r.movieId === sheet.movieId && r.userId !== state.meId)
+          .map((r) => r.userId)
+      ).size
+    : 0;
+
   const heartCandidates = sheet?.kind === 'hearts'
     ? [...new Map(
         recs.filter((r) => r.movieId === sheet.movieId && r.userId !== state.meId)
@@ -122,7 +133,12 @@ export default function Collection({ questionId, onBack }) {
 
   return (
     <>
-      <ScrollView contentContainerStyle={st.page} keyboardShouldPersistTaps="handled">
+      <ScrollView
+        contentContainerStyle={st.page}
+        keyboardShouldPersistTaps="handled"
+        keyboardDismissMode="on-drag"
+        automaticallyAdjustKeyboardInsets={Platform.OS === 'ios'}
+      >
         <Pressable onPress={onBack} hitSlop={10}>
           <Text style={st.back}>← All collections</Text>
         </Pressable>
@@ -145,17 +161,21 @@ export default function Collection({ questionId, onBack }) {
 
           <Text style={st.qTitle}>🎬 {q.text}</Text>
 
-          <View style={st.request}>
-            <Text style={st.requestLab}>LOOKING FOR</Text>
-            <View style={st.tags}>
-              <Tag label={q.lang} /><Tag label={q.genre} />
+          {(q.lang || q.genre || q.constraints) ? (
+            <View style={st.request}>
+              <Text style={st.requestLab}>LOOKING FOR</Text>
+              <View style={st.tags}>
+                {!!q.lang && <Tag label={q.lang} />}
+                {!!q.genre && <Tag label={q.genre} />}
+              </View>
+              {!!q.constraints && <Text style={[F.small, { marginTop: 8 }]}>{q.constraints}</Text>}
             </View>
-            {!!q.constraints && <Text style={[F.small, { marginTop: 8 }]}>{q.constraints}</Text>}
-          </View>
+          ) : <View style={{ height: S.md }} />}
 
           <Text style={F.small}>
-            {people} {people === 1 ? 'person' : 'people'} recommended {list.length}{' '}
-            {list.length === 1 ? 'movie' : 'movies'}.
+            {poll
+              ? `${list.length} options · ${people} ${people === 1 ? 'vote' : 'votes'} so far.`
+              : `${people} ${people === 1 ? 'person' : 'people'} recommended ${list.length} ${list.length === 1 ? 'movie' : 'movies'}.`}
             {closed
               ? ' The suggestions are preserved. Your movie night starts here.'
               : ' A few honest recommendations can make someone’s evening.'}
@@ -170,6 +190,18 @@ export default function Collection({ questionId, onBack }) {
                   {' '}You can choose that — or any other movie below. No new movies or
                   recommendations can be added.
                 </>
+              ) : poll ? (
+                isOp ? (
+                  <>
+                    <Text style={st.strong}>Your poll is live.</Text>
+                    {' '}People are picking from your list. Close it whenever you've decided.
+                  </>
+                ) : (
+                  <>
+                    <Text style={st.strong}>{findUser(state, q.userId).name.split(' ')[0]} listed the options.</Text>
+                    {' '}Pick the one you'd send them to. Nothing new can be added.
+                  </>
+                )
               ) : isOp ? (
                 <>
                   <Text style={st.strong}>Found your next watch?</Text>
@@ -193,9 +225,23 @@ export default function Collection({ questionId, onBack }) {
           <FlowItem n="03 · Pass it forward" sub="Watch, share, thank" on={closed} />
         </View>
 
+        {poll && !closed ? (
+          <PollBoard
+            state={state}
+            question={q}
+            onVote={(movieId, text) => run({ type: 'vote', questionId: q.id, movieId, text })}
+            onWatch={(movieId) => run({ type: 'watch', questionId: q.id, movieId })}
+            onClose={(movieId) => movieId && run({ type: 'choose', questionId: q.id, movieId })}
+          />
+        ) : (
+        <>
         <View style={st.sectionTitle}>
           <Text style={[F.h2, { flex: 1 }]}>
-            {closed ? `Pick your kind of ${q.genre.toLowerCase()} movie` : 'The community’s picks'}
+            {poll
+              ? 'How the vote went'
+              : closed
+                ? `Pick your kind of ${(q.genre || 'good').toLowerCase()} movie`
+                : 'The community’s picks'}
           </Text>
           {!closed && (
             <Pressable onPress={() => setSheet({ kind: 'recommend' })}>
@@ -204,9 +250,11 @@ export default function Collection({ questionId, onBack }) {
           )}
         </View>
         <Text style={[F.tiny, { marginBottom: 15 }]}>
-          {closed
-            ? 'Ranking is frozen by original recommendations. Watching and experiences keep updating.'
-            : 'Ranked by unique recommenders per movie, not ratings.'}
+          {poll
+            ? 'Voting is closed. Pick any of them — the list stays useful for the next person.'
+            : closed
+              ? 'Ranking is frozen by original recommendations. Watching and experiences keep updating.'
+              : 'Ranked by unique recommenders per movie, not ratings.'}
         </Text>
 
         {list.length ? (
@@ -217,7 +265,7 @@ export default function Collection({ questionId, onBack }) {
                 style={{ width: cardW }}>
               <MovieCard
                 state={state} question={q} row={row} index={i}
-                closed={closed} isOp={isOp} width={cardW}
+                closed={closed} isOp={isOp} poll={poll} width={cardW}
                 onWatch={() => run({ type: closed ? 'watch' : 'choose', questionId: q.id, movieId: row.movieId })}
                 onSupport={() => setSheet({ kind: 'recommend', movieId: row.movieId })}
                 onFinish={() => {
@@ -239,6 +287,8 @@ export default function Collection({ questionId, onBack }) {
             <Btn title="Recommend a movie" style={{ marginTop: S.lg }}
               onPress={() => setSheet({ kind: 'recommend' })} />
           </View>
+        )}
+        </>
         )}
 
         {/* discussion */}
@@ -410,8 +460,11 @@ export default function Collection({ questionId, onBack }) {
             {sheet?.kind === 'experience' && (
               <>
                 <Text style={F.small}>
-                  How was {findMovie(state, sheet.movieId).title}? This is what makes the
-                  collection worth reading in a year.
+                  {stakers === 0
+                    ? `Tell the next person how ${findMovie(state, sheet.movieId).title} went.`
+                    : `Tell them how ${findMovie(state, sheet.movieId).title} went — the ${
+                        stakers === 1 ? 'person' : 'people'
+                      } who recommended it ${stakers === 1 ? 'is' : 'are'} waiting to hear.`}
                 </Text>
                 <Text style={st.fieldLab}>Overall experience</Text>
                 <View style={{ flexDirection: 'row', gap: 6 }}>
@@ -487,16 +540,26 @@ export default function Collection({ questionId, onBack }) {
                   disabled={picked.length === 0}
                   style={{ marginTop: S.lg }}
                   onPress={() => {
+                    const title = findMovie(state, sheet.movieId).title;
                     const res = run({ type: 'hearts', questionId: q.id, movieId: sheet.movieId, toUserIds: picked });
-                    if (res.state) { close(); setThanked(res.thanked || []); }
+                    if (res.state) { close(); setThanked({ names: res.thanked || [], movie: title }); }
                   }} />
               </>
             )}
       </Sheet>
 
+      <Recommended
+        visible={!!added}
+        movie={added?.movie}
+        joined={added?.joined}
+        count={added?.count}
+        asker={added?.asker}
+        onDone={() => setAdded(null)}
+      />
+
       <Thanked
         visible={!!thanked}
-        names={thanked || []}
+        movie={thanked?.movie}
         onDone={() => setThanked(null)}
       />
     </>
