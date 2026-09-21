@@ -7,6 +7,7 @@ import Sheet from '../components/Sheet';
 import Thanked from '../components/Thanked';
 import Recommended from '../components/Recommended';
 import PollBoard from '../components/PollBoard';
+import Voted from '../components/Voted';
 import { C, S, F, shadow } from '../theme';
 import { Btn, Avatar, Poster } from '../ui';
 import { useStore } from '../store';
@@ -34,6 +35,7 @@ export default function Collection({ questionId, onBack }) {
   const [comment, setComment] = useState('');
   const [thanked, setThanked] = useState(null); // names awaiting the hearts animation
   const [added, setAdded] = useState(null);     // movie awaiting the recommend animation
+  const [voted, setVoted] = useState(null);     // movie awaiting the vote animation
   const [remote, setRemote] = useState([]);
   const [looking, setLooking] = useState(false);
   const [chosen, setChosen] = useState(null); // an IMDb pick, with its poster
@@ -229,7 +231,15 @@ export default function Collection({ questionId, onBack }) {
           <PollBoard
             state={state}
             question={q}
-            onVote={(movieId, text) => run({ type: 'vote', questionId: q.id, movieId, text })}
+            onVote={(movieId, text) => {
+              const res = run({ type: 'vote', questionId: q.id, movieId, text });
+              if (res.state) {
+                setVoted({
+                  movie: findMovie(res.state, movieId).title,
+                  asker: q.userId === state.meId ? null : findUser(state, q.userId).name.split(' ')[0],
+                });
+              }
+            }}
             onWatch={(movieId) => run({ type: 'watch', questionId: q.id, movieId })}
             onClose={(movieId) => movieId && run({ type: 'choose', questionId: q.id, movieId })}
           />
@@ -243,7 +253,7 @@ export default function Collection({ questionId, onBack }) {
                 ? `Pick your kind of ${(q.genre || 'good').toLowerCase()} movie`
                 : 'The community’s picks'}
           </Text>
-          {!closed && (
+          {!closed && !isOp && (
             <Pressable onPress={() => setSheet({ kind: 'recommend' })}>
               <Text style={st.link}>＋ Recommend</Text>
             </Pressable>
@@ -280,12 +290,23 @@ export default function Collection({ questionId, onBack }) {
           </View>
         ) : (
           <View style={st.empty}>
-            <Text style={F.h3}>The first great pick could be yours.</Text>
-            <Text style={[F.small, { marginTop: 6, textAlign: 'center' }]}>
-              Start the collection with a movie and a short reason.
-            </Text>
-            <Btn title="Recommend a movie" style={{ marginTop: S.lg }}
-              onPress={() => setSheet({ kind: 'recommend' })} />
+            {isOp ? (
+              <>
+                <Text style={F.h3}>Nobody has answered yet.</Text>
+                <Text style={[F.small, { marginTop: 6, textAlign: 'center' }]}>
+                  Give it a little time — the movies people put forward will show up here.
+                </Text>
+              </>
+            ) : (
+              <>
+                <Text style={F.h3}>The first great pick could be yours.</Text>
+                <Text style={[F.small, { marginTop: 6, textAlign: 'center' }]}>
+                  Start the collection with a movie and a short reason.
+                </Text>
+                <Btn title="Recommend a movie" style={{ marginTop: S.lg }}
+                  onPress={() => setSheet({ kind: 'recommend' })} />
+              </>
+            )}
           </View>
         )}
         </>
@@ -547,6 +568,13 @@ export default function Collection({ questionId, onBack }) {
               </>
             )}
       </Sheet>
+
+      <Voted
+        visible={!!voted}
+        movie={voted?.movie}
+        asker={voted?.asker}
+        onDone={() => setVoted(null)}
+      />
 
       <Recommended
         visible={!!added}

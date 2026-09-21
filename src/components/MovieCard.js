@@ -94,7 +94,7 @@ export default function MovieCard({ state, question, row, index, closed, isOp, p
               title={closed && mt.watching > 0 ? 'I’m watching this too' : 'I’m going to watch this'}
               onPress={onWatch}
             />
-            {!closed && (
+            {!closed && !isOp && (
               <Pressable onPress={supported ? undefined : onSupport} disabled={supported}>
                 <Text style={[st.link, supported && { color: C.dim }]}>
                   {supported ? '✓ Recommended by you' : '＋ Support this movie'}

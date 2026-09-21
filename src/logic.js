@@ -401,6 +401,10 @@ export function apply(state, action) {
       if (!q) return fail('Question not found.');
       if (q.kind === 'poll')
         return fail('This is a poll — pick one of the options instead.');
+      // You asked because you don't know. Putting films forward on your own
+      // thread would also let you earn reputation on a question you started.
+      if (q.userId === s.meId)
+        return fail('You are the one asking. Let other people put movies forward.');
       if (!isOpen(q))
         return fail('Suggestions are closed. The list is frozen — but you can still pick from it.');
       const title = String(action.title || '').trim();

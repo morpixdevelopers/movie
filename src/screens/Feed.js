@@ -3,6 +3,7 @@ import { View, Text, ScrollView, Pressable, StyleSheet, TextInput, Platform } fr
 import { C, S, F, shadow } from '../theme';
 import { Btn, Avatar, Card, Poster, Chip, SectionHead } from '../ui';
 import PollCard from '../components/PollCard';
+import Voted from '../components/Voted';
 import { useStore } from '../store';
 import { rows, isOpen, findUser, findMovie, ago, movieBoard, todo, isPoll } from '../logic';
 
@@ -16,6 +17,7 @@ export default function Feed({ onOpen, onAsk }) {
   const { state, run } = useStore();
   const [query, setQuery] = useState('');
   const [filter, setFilter] = useState('all');
+  const [voted, setVoted] = useState(null); // poll vote awaiting its moment
 
   const me = findUser(state, state.meId);
   const trending = movieBoard(state).slice(0, 8);
@@ -31,6 +33,7 @@ export default function Feed({ onOpen, onAsk }) {
   });
 
   return (
+    <>
     <ScrollView
       contentContainerStyle={{ paddingBottom: 40 }}
       keyboardShouldPersistTaps="handled"
@@ -121,7 +124,15 @@ export default function Feed({ onOpen, onAsk }) {
                   key={q.id}
                   state={state}
                   question={q}
-                  onVote={(movieId, text) => run({ type: 'vote', questionId: q.id, movieId, text })}
+                  onVote={(movieId, text) => {
+                    const res = run({ type: 'vote', questionId: q.id, movieId, text });
+                    if (res.state) {
+                      setVoted({
+                        movie: findMovie(res.state, movieId).title,
+                        asker: findUser(state, q.userId).name.split(' ')[0],
+                      });
+                    }
+                  }}
                   onOpen={() => onOpen(q.id)}
                 />
               );
@@ -187,6 +198,14 @@ export default function Feed({ onOpen, onAsk }) {
         )}
       </View>
     </ScrollView>
+
+    <Voted
+      visible={!!voted}
+      movie={voted?.movie}
+      asker={voted?.asker}
+      onDone={() => setVoted(null)}
+    />
+    </>
   );
 }
 
