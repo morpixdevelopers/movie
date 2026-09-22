@@ -4,7 +4,7 @@ import Animated, {
   useSharedValue, useAnimatedStyle, withTiming, withDelay, withSpring,
   runOnJS, Easing,
 } from 'react-native-reanimated';
-import { C, S, F } from '../theme';
+import { C, S, F, makeStyles } from '../theme';
 
 /**
  * After voting in a poll. Deliberately quieter than the recommend and heart
@@ -60,7 +60,7 @@ export default function Voted({ visible, movie, asker, onDone }) {
 }
 
 const RING = 92;
-const st = StyleSheet.create({
+const st = makeStyles((C, S, F, shadow) => StyleSheet.create({
   root: {
     flex: 1, backgroundColor: C.bg,
     alignItems: 'center', justifyContent: 'center', paddingHorizontal: S.xxl,
@@ -77,4 +77,4 @@ const st = StyleSheet.create({
     lineHeight: 20, paddingHorizontal: S.md,
   },
   movie: { color: C.accent, fontWeight: '700' },
-});
+}));

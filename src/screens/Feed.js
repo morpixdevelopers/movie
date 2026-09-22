@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { View, Text, ScrollView, Pressable, StyleSheet, TextInput, Platform } from 'react-native';
-import { C, S, F, shadow } from '../theme';
+import { C, S, F, shadow, makeStyles } from '../theme';
 import { Btn, Avatar, Card, Poster, Chip, SectionHead } from '../ui';
 import PollCard from '../components/PollCard';
 import Voted from '../components/Voted';
@@ -209,7 +209,7 @@ export default function Feed({ onOpen, onAsk }) {
   );
 }
 
-const st = StyleSheet.create({
+const st = makeStyles((C, S, F, shadow) => StyleSheet.create({
   pad: { paddingHorizontal: S.xl },
   top: { paddingHorizontal: S.xl, paddingTop: S.md, paddingBottom: S.xl },
   hello: { ...F.label, color: C.accent, marginBottom: S.sm },
@@ -246,7 +246,7 @@ const st = StyleSheet.create({
 
   tabs: { flexDirection: 'row', flexWrap: 'wrap', gap: 7, marginVertical: S.lg },
   tab: { borderRadius: 100, paddingHorizontal: 14, paddingVertical: 9, backgroundColor: C.chip },
-  tabOn: { backgroundColor: C.accent },
+  tabOn: { backgroundColor: C.accentFill },
   tabText: { fontSize: 12, color: C.muted, fontWeight: '700' },
 
   qCard: { marginBottom: S.lg, padding: S.lg },
@@ -274,4 +274,4 @@ const st = StyleSheet.create({
     marginTop: S.lg, paddingTop: S.md, borderTopWidth: 1, borderTopColor: C.lineSoft,
   },
   link: { color: C.accent, fontSize: 13, fontWeight: '800' },
-});
+}));

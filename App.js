@@ -10,7 +10,7 @@ import Animated, {
 // RN's own SafeAreaView is iOS-only, and Android draws edge-to-edge from
 // SDK 53 — this package gives real insets on both.
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
-import { C, S, F, shadow } from './src/theme';
+import { C, S, F, shadow, makeStyles, ThemeProvider, useTheme } from './src/theme';
 import { StoreProvider, useStore } from './src/store';
 import { Avatar } from './src/ui';
 import { findUser } from './src/logic';
@@ -53,7 +53,7 @@ function Shell() {
 
   return (
     <SafeAreaView style={st.root} edges={['top', 'bottom']}>
-      <StatusBar barStyle="dark-content" backgroundColor={C.bg} />
+      <StatusBar barStyle={C.barStyle} backgroundColor={C.bg} />
 
       <View style={st.header}>
         <Pressable onPress={() => { setTab('feed'); setQid(null); }} style={st.brand}>
@@ -99,9 +99,10 @@ function Shell() {
         <Animated.View
           entering={SlideInDown.springify().damping(18).stiffness(180)}
           exiting={FadeOut.duration(180)}
-          style={[st.toast, error && { backgroundColor: C.accent }]}
+          style={[st.toast, error && { backgroundColor: C.accentFill }]}
         >
-          <Text style={st.toastText}>{error || toast}</Text>
+          {/* a white toast reads as information; a red one reads as a refusal */}
+          <Text style={[st.toastText, error && { color: C.onAccent }]}>{error || toast}</Text>
         </Animated.View>
       )}
 
@@ -194,15 +195,24 @@ function NavBtn({ label, glyph, on, onPress }) {
 
 export default function App() {
   return (
-    <SafeAreaProvider>
-      <StoreProvider>
-        <Shell />
-      </StoreProvider>
-    </SafeAreaProvider>
+    <ThemeProvider>
+      <SafeAreaProvider>
+        <StoreProvider>
+          <Themed />
+        </StoreProvider>
+      </SafeAreaProvider>
+    </ThemeProvider>
   );
 }
 
-const st = StyleSheet.create({
+// Keyed on the resolved palette so the tree rebuilds cleanly on a switch and
+// nothing is left holding a style from the previous theme.
+function Themed() {
+  const { resolved } = useTheme();
+  return <Shell key={resolved} />;
+}
+
+const st = makeStyles((C, S, F, shadow) => StyleSheet.create({
   root: { flex: 1, backgroundColor: C.bg },
   header: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
@@ -226,7 +236,7 @@ const st = StyleSheet.create({
   navBtn: { flex: 1, alignItems: 'center', paddingVertical: S.md, gap: 3 },
   askWrap: { width: 64, alignItems: 'center', justifyContent: 'center' },
   ask: {
-    width: 50, height: 50, borderRadius: 17, backgroundColor: C.accent, ...shadow(2),
+    width: 50, height: 50, borderRadius: 17, backgroundColor: C.accentFill, ...shadow(2),
     alignItems: 'center', justifyContent: 'center',
   },
   askGlyph: { color: C.onAccent, fontSize: 24, fontWeight: '700', lineHeight: 28 },
@@ -234,9 +244,9 @@ const st = StyleSheet.create({
   navLabel: { fontSize: 9.5, color: C.dim, fontWeight: '800', letterSpacing: 0.4 },
   toast: {
     position: 'absolute', left: S.xl, right: S.xl, bottom: 92,
-    backgroundColor: C.text, borderRadius: S.radiusSm, padding: S.lg, ...shadow(3),
+    backgroundColor: C.toastBg, borderRadius: S.radiusSm, padding: S.lg, ...shadow(3),
   },
-  toastText: { color: '#ffffff', fontSize: 13.5, fontWeight: '700', lineHeight: 19 },
+  toastText: { color: C.toastText, fontSize: 13.5, fontWeight: '700', lineHeight: 19 },
   overlay: { flex: 1, backgroundColor: C.overlay, justifyContent: 'center', padding: S.xl },
   picker: {
     backgroundColor: C.bg, borderWidth: 1, borderColor: C.line,
@@ -247,4 +257,4 @@ const st = StyleSheet.create({
     borderWidth: 1, borderColor: C.line, borderRadius: S.radiusSm,
     padding: S.md, marginBottom: S.sm, minHeight: 52,
   },
-});
+}));

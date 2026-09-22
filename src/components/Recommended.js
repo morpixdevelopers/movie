@@ -4,7 +4,7 @@ import Animated, {
   useSharedValue, useAnimatedStyle, withTiming, withDelay, withSpring,
   runOnJS, Easing,
 } from 'react-native-reanimated';
-import { C, S, F, shadow } from '../theme';
+import { C, S, F, shadow, makeStyles } from '../theme';
 import { Poster } from '../ui';
 
 const APoster = Animated.createAnimatedComponent(Animated.View);
@@ -73,7 +73,7 @@ export default function Recommended({ visible, movie, count = 1, joined, asker, 
   );
 }
 
-const st = StyleSheet.create({
+const st = makeStyles((C, S, F, shadow) => StyleSheet.create({
   root: {
     flex: 1, backgroundColor: C.bg,
     alignItems: 'center', justifyContent: 'center', paddingHorizontal: S.xxl,
@@ -83,4 +83,4 @@ const st = StyleSheet.create({
   title: { ...F.h2, fontSize: 21, textAlign: 'center', marginTop: S.xl, lineHeight: 29 },
   name: { color: C.accent },
   sub: { ...F.small, textAlign: 'center', marginTop: S.sm },
-});
+}));

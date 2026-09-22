@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { View, Text, Pressable, StyleSheet, TextInput } from 'react-native';
 import Animated, { FadeInDown, FadeIn } from 'react-native-reanimated';
 import Sheet from './Sheet';
-import { C, S, F } from '../theme';
+import { C, S, F, makeStyles } from '../theme';
 import { Btn } from '../ui';
 import { useStore } from '../store';
 import { LANGS, GENRES } from '../seed';
@@ -221,7 +221,7 @@ export default function AskSheet({ visible, kind = 'open', onClose, onPosted }) 
   );
 }
 
-const st = StyleSheet.create({
+const st = makeStyles((C, S, F, shadow) => StyleSheet.create({
   lab: { fontSize: 12, fontWeight: '600', color: C.text, marginTop: S.lg, marginBottom: S.sm },
   input: {
     backgroundColor: C.input, borderWidth: 1, borderColor: C.line,
@@ -233,7 +233,7 @@ const st = StyleSheet.create({
     backgroundColor: C.chip, borderRadius: 100,
     paddingHorizontal: 14, paddingVertical: 10, minHeight: 40, justifyContent: 'center',
   },
-  optOn: { backgroundColor: C.accent, borderColor: C.accent },
+  optOn: { backgroundColor: C.accentFill, borderColor: C.accentFill },
   optText: { fontSize: 12, color: C.muted, fontWeight: '600' },
   chosen: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: S.md },
   pickTile: { width: 78 },
@@ -255,4 +255,4 @@ const st = StyleSheet.create({
     borderRadius: 10, padding: 13, marginVertical: S.lg,
   },
   noticeText: { fontSize: 12, color: C.text, opacity: 0.9, lineHeight: 19 },
-});
+}));

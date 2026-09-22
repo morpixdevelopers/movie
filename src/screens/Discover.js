@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { View, Text, ScrollView, Pressable, StyleSheet, TextInput } from 'react-native';
-import { C, S, F } from '../theme';
+import { C, S, F, makeStyles } from '../theme';
 import { Avatar, Poster } from '../ui';
 import { useStore } from '../store';
 import { movieBoard, leaderboard, findUser } from '../logic';
@@ -119,7 +119,7 @@ const Total = ({ n, label }) => (
   </View>
 );
 
-const st = StyleSheet.create({
+const st = makeStyles((C, S, F, shadow) => StyleSheet.create({
   page: { padding: S.lg, paddingTop: S.md },
   eyebrow: { color: C.accent, fontSize: 9, letterSpacing: 1.4, fontWeight: '800' },
   h1: { fontSize: 27, fontWeight: '800', color: C.text, letterSpacing: -0.9, lineHeight: 33, marginTop: S.sm },
@@ -136,7 +136,7 @@ const st = StyleSheet.create({
   lab: { fontSize: 9.5, letterSpacing: 1.4, color: C.muted, fontWeight: '800', marginTop: S.xl, marginBottom: S.sm },
   chips: { flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
   chip: { borderRadius: 100, backgroundColor: C.chip, paddingHorizontal: 14, paddingVertical: 9 },
-  chipOn: { backgroundColor: C.accent },
+  chipOn: { backgroundColor: C.accentFill },
   chipText: { fontSize: 11.5, color: C.muted, fontWeight: '600' },
   row: {
     flexDirection: 'row', alignItems: 'center', gap: S.md,
@@ -160,4 +160,4 @@ const st = StyleSheet.create({
     borderRadius: 14, padding: S.lg,
   },
   noteStrong: { color: C.text, fontWeight: '700', fontSize: 13, lineHeight: 20 },
-});
+}));

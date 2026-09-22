@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { View, Text, StyleSheet, TextInput } from 'react-native';
-import { C, S, F, shadow } from '../theme';
+import { C, S, F, shadow, makeStyles } from '../theme';
 import { Btn } from '../ui';
 import PollOptions from './PollOptions';
 import { rows, findMovie, findUser, myVote, isOpen } from '../logic';
@@ -123,7 +123,7 @@ export default function PollBoard({ state, question, onVote, onWatch, onClose })
   );
 }
 
-const st = StyleSheet.create({
+const st = makeStyles((C, S, F, shadow) => StyleSheet.create({
   head: { marginBottom: S.md, gap: 3 },
   box: { marginTop: S.lg },
   input: {
@@ -138,4 +138,4 @@ const st = StyleSheet.create({
   decideLab: { ...F.label, color: C.accent, marginBottom: S.sm },
   decideText: { ...F.small, color: C.text, opacity: 0.9, lineHeight: 19 },
   after: { marginTop: S.lg },
-});
+}));

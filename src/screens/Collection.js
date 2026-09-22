@@ -9,7 +9,7 @@ import Thanked from '../components/Thanked';
 import Recommended from '../components/Recommended';
 import PollBoard from '../components/PollBoard';
 import Voted from '../components/Voted';
-import { C, S, F, shadow } from '../theme';
+import { C, S, F, shadow, makeStyles } from '../theme';
 import { Btn, Avatar, Poster } from '../ui';
 import { useStore } from '../store';
 import MovieCard from '../components/MovieCard';
@@ -561,7 +561,7 @@ export default function Collection({ questionId, onBack }) {
                 <View style={{ flexDirection: 'row', gap: 6 }}>
                   {[1, 2, 3, 4, 5].map((n) => (
                     <Pressable key={n} onPress={() => setRating(n)}
-                      style={[st.rate, rating === n && { backgroundColor: C.accent, borderColor: C.accent }]}>
+                      style={[st.rate, rating === n && { backgroundColor: C.accentFill, borderColor: C.accentFill }]}>
                       <Text style={[st.rateN, rating === n && { color: C.onAccent }]}>{n}</Text>
                       <Text style={[st.rateL, rating === n && { color: C.onAccent }]} numberOfLines={2}>
                         {RATING_LABELS[n - 1]}
@@ -719,7 +719,7 @@ const FlowItem = ({ n, sub, on }) => (
   </View>
 );
 
-const st = StyleSheet.create({
+const st = makeStyles((C, S, F, shadow) => StyleSheet.create({
   page: { padding: S.lg, paddingTop: S.md },
   back: { color: C.accent, fontSize: 12, marginBottom: S.lg },
   card: { backgroundColor: C.panel, borderRadius: S.radius, padding: S.xl, ...shadow(1) },
@@ -751,7 +751,7 @@ const st = StyleSheet.create({
   strong: { color: C.text, fontWeight: '700' },
   flow: { flexDirection: 'row', gap: 8, marginVertical: 22 },
   flowItem: { flex: 1, backgroundColor: C.panel, borderRadius: S.radiusSm, padding: 12, ...shadow(1) },
-  flowItemOn: { backgroundColor: C.accent },
+  flowItemOn: { backgroundColor: C.accentFill },
   flowStrong: { fontSize: 10.5, fontWeight: '700', color: C.text, marginBottom: 5, lineHeight: 14 },
   flowSub: { fontSize: 9, color: C.muted, lineHeight: 13 },
   sectionTitle: { flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 6 },
@@ -763,7 +763,7 @@ const st = StyleSheet.create({
   },
   tabs: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginVertical: S.md },
   tab: { borderRadius: 100, backgroundColor: C.chip, paddingHorizontal: 14, paddingVertical: 9 },
-  tabOn: { backgroundColor: C.accent },
+  tabOn: { backgroundColor: C.accentFill },
   tabText: { fontSize: 11, color: C.muted, fontWeight: '600' },
   reply: { paddingVertical: 17, borderBottomWidth: 1, borderBottomColor: C.line },
   replyBody: { ...F.small, color: C.text, opacity: 0.85, marginTop: 10, marginLeft: 42, lineHeight: 21 },
@@ -798,4 +798,4 @@ const st = StyleSheet.create({
     flexDirection: 'row', alignItems: 'center', gap: S.md, marginTop: S.sm,
     borderWidth: 1, borderColor: C.line, borderRadius: 9, padding: S.md, minHeight: 56,
   },
-});
+}));

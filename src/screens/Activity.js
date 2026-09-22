@@ -1,7 +1,7 @@
 import React from 'react';
 import { View, Text, ScrollView, Pressable, StyleSheet } from 'react-native';
 import Animated, { FadeInDown } from 'react-native-reanimated';
-import { C, S, F, shadow } from '../theme';
+import { C, S, F, shadow, makeStyles } from '../theme';
 import { Btn } from '../ui';
 import { useStore } from '../store';
 import { activity, todo, ago, findUser } from '../logic';
@@ -69,7 +69,7 @@ export default function Activity({ onOpen, onAsk }) {
   );
 }
 
-const st = StyleSheet.create({
+const st = makeStyles((C, S, F, shadow) => StyleSheet.create({
   page: { padding: S.lg, paddingTop: S.md },
   eyebrow: { color: C.accent, fontSize: 9, letterSpacing: 1.4, fontWeight: '800' },
   h1: { fontSize: 27, fontWeight: '800', color: C.text, letterSpacing: -0.9, marginTop: S.sm },
@@ -94,4 +94,4 @@ const st = StyleSheet.create({
     borderWidth: 1, borderStyle: 'dashed', borderColor: C.line, borderRadius: 15,
     padding: S.xxl, alignItems: 'center',
   },
-});
+}));

@@ -4,7 +4,7 @@ import Animated, {
   useSharedValue, useAnimatedStyle, withTiming, withDelay, withSpring,
   runOnJS, Easing,
 } from 'react-native-reanimated';
-import { C, S, F } from '../theme';
+import { C, S, F, makeStyles } from '../theme';
 
 /** One heart, one line, gone. */
 export default function Thanked({ visible, movie, onDone }) {
@@ -53,7 +53,7 @@ export default function Thanked({ visible, movie, onDone }) {
   );
 }
 
-const st = StyleSheet.create({
+const st = makeStyles((C, S, F, shadow) => StyleSheet.create({
   root: {
     flex: 1, backgroundColor: C.bg,
     alignItems: 'center', justifyContent: 'center', paddingHorizontal: S.xxl,
@@ -65,4 +65,4 @@ const st = StyleSheet.create({
     ...F.small, textAlign: 'center', marginTop: S.sm,
     lineHeight: 20, paddingHorizontal: S.md,
   },
-});
+}));

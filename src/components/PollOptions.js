@@ -1,6 +1,6 @@
 import React from 'react';
 import { View, Text, Pressable, StyleSheet } from 'react-native';
-import { C, S, F } from '../theme';
+import { C, S, F, makeStyles } from '../theme';
 import { Poster } from '../ui';
 import { findMovie } from '../logic';
 
@@ -67,7 +67,7 @@ export default function PollOptions({ state, list, myId, reveal, votable, winner
   );
 }
 
-const st = StyleSheet.create({
+const st = makeStyles((C, S, F, shadow) => StyleSheet.create({
   wrap: {
     backgroundColor: C.panel, borderRadius: S.radiusSm,
     borderWidth: 1, borderColor: C.line, overflow: 'hidden',
@@ -92,4 +92,4 @@ const st = StyleSheet.create({
     marginTop: S.sm, marginLeft: 32 + 38 + S.md, overflow: 'hidden',
   },
   fill: { height: 6, borderRadius: 3, backgroundColor: C.accent },
-});
+}));

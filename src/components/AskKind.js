@@ -1,7 +1,7 @@
 import React from 'react';
 import { View, Text, Pressable, StyleSheet } from 'react-native';
 import Sheet from './Sheet';
-import { C, S, F, shadow } from '../theme';
+import { C, S, F, shadow, makeStyles } from '../theme';
 
 const CHOICES = [
   {
@@ -46,7 +46,7 @@ export default function AskKind({ visible, onClose, onPick }) {
   );
 }
 
-const st = StyleSheet.create({
+const st = makeStyles((C, S, F, shadow) => StyleSheet.create({
   card: {
     backgroundColor: C.panel, borderRadius: S.radius,
     padding: S.lg, marginTop: S.md,
@@ -66,4 +66,4 @@ const st = StyleSheet.create({
     marginTop: S.md, paddingTop: S.md,
     borderTopWidth: 1, borderTopColor: C.lineSoft,
   },
-});
+}));

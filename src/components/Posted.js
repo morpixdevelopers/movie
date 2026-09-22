@@ -5,7 +5,7 @@ import Animated, {
   withSequence, withRepeat, runOnJS, Easing,
 } from 'react-native-reanimated';
 import { LinearGradient } from 'expo-linear-gradient';
-import { C, S, F, shadow } from '../theme';
+import { C, S, F, shadow, makeStyles } from '../theme';
 
 
 /**
@@ -113,7 +113,7 @@ export default function Posted({ visible, onDone }) {
 }
 
 const BADGE = 108;
-const st = StyleSheet.create({
+const st = makeStyles((C, S, F, shadow) => StyleSheet.create({
   root: {
     flex: 1, backgroundColor: C.bg,
     alignItems: 'center', justifyContent: 'center', paddingHorizontal: S.xxl,
@@ -136,4 +136,4 @@ const st = StyleSheet.create({
     borderRadius: 100, paddingHorizontal: 14, paddingVertical: 8,
   },
   pillText: { fontSize: 10, letterSpacing: 1.2, color: C.accent, fontWeight: '800' },
-});
+}));

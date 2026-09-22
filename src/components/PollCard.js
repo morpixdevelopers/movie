@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { View, Text, Pressable, StyleSheet, TextInput } from 'react-native';
-import { C, S, F, shadow } from '../theme';
+import { C, S, F, shadow, makeStyles } from '../theme';
 import { Avatar, Btn } from '../ui';
 import PollOptions from './PollOptions';
 import { rows, findMovie, findUser, myVote, isOpen, ago } from '../logic';
@@ -93,7 +93,7 @@ export default function PollCard({ state, question, onVote, onOpen }) {
   );
 }
 
-const st = StyleSheet.create({
+const st = makeStyles((C, S, F, shadow) => StyleSheet.create({
   card: {
     backgroundColor: C.panel, borderRadius: S.radius,
     padding: S.lg, marginBottom: S.lg,
@@ -119,4 +119,4 @@ const st = StyleSheet.create({
     marginTop: S.md, paddingTop: S.md, borderTopWidth: 1, borderTopColor: C.lineSoft,
   },
   link: { color: C.accent, fontSize: 13, fontWeight: '800' },
-});
+}));

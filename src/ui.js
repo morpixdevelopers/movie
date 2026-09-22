@@ -17,7 +17,7 @@ function usePress(to = 0.96) {
   };
 }
 import { LinearGradient } from 'expo-linear-gradient';
-import { C, S, F, shadow } from './theme';
+import { C, S, F, shadow, makeStyles } from './theme';
 import { initials } from './logic';
 
 export const poster = (id, w = 400) =>
@@ -150,9 +150,9 @@ export function Stat({ value, caption, accent }) {
   );
 }
 
-export function SectionHead({ title, action, onAction, sub }) {
+export function SectionHead({ title, action, onAction, sub, style }) {
   return (
-    <View style={st.sectionHead}>
+    <View style={[st.sectionHead, style]}>
       <View style={{ flex: 1 }}>
         <Text style={F.h2}>{title}</Text>
         {!!sub && <Text style={[F.tiny, { marginTop: 3 }]}>{sub}</Text>}
@@ -168,7 +168,7 @@ export function SectionHead({ title, action, onAction, sub }) {
 
 export { usePress };
 
-const st = StyleSheet.create({
+const st = makeStyles((C, S, F, shadow) => StyleSheet.create({
   btn: {
     minHeight: 50, borderRadius: S.radiusSm, paddingHorizontal: S.xl,
     alignItems: 'center', justifyContent: 'center', overflow: 'hidden',
@@ -188,4 +188,4 @@ const st = StyleSheet.create({
   statCaption: { fontSize: 10.5, color: C.muted, marginTop: 3, lineHeight: 14 },
   sectionHead: { flexDirection: 'row', alignItems: 'flex-end', gap: 12, marginBottom: S.md },
   link: { color: C.accent, fontSize: 13, fontWeight: '700' },
-});
+}));

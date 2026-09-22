@@ -1,6 +1,6 @@
 import React from 'react';
 import { View, Text, ScrollView, Pressable, StyleSheet } from 'react-native';
-import { C, S, F } from '../theme';
+import { C, S, F, makeStyles, useTheme } from '../theme';
 import { Avatar, Rule, Stat, Btn, Poster, SectionHead } from '../ui';
 import { useStore } from '../store';
 import {
@@ -9,6 +9,7 @@ import {
 
 export default function Profile({ onOpen }) {
   const { state, reset } = useStore();
+  const { mode, resolved, setMode } = useTheme();
   const me = findUser(state, state.meId);
   const score = recommenderScore(state, state.meId);
   const mine = myRecommendations(state, state.meId);
@@ -95,13 +96,46 @@ export default function Profile({ onOpen }) {
         ))
       )}
 
+      <SectionHead title="Appearance" sub="How the app looks" style={{ marginTop: S.xxl }} />
+      <View style={st.modes}>
+        {[['auto', 'Auto'], ['light', 'Light'], ['dark', 'Dark']].map(([id, label]) => {
+          const on = mode === id;
+          return (
+            <Pressable
+              key={id}
+              onPress={() => setMode(id)}
+              accessibilityRole="button"
+              accessibilityState={{ selected: on }}
+              style={({ pressed }) => [st.mode, on && st.modeOn, pressed && !on && { backgroundColor: C.chip }]}
+            >
+              <Text style={[st.modeText, on && { color: C.onAccent }]}>{label}</Text>
+            </Pressable>
+          );
+        })}
+      </View>
+      <Text style={[F.tiny, { marginTop: S.sm }]}>
+        {mode === 'auto'
+          ? `Following your phone — ${resolved} right now.`
+          : `Always ${mode}, whatever your phone is set to.`}
+      </Text>
+
       <Btn kind="ghost" title="Reset to the seeded scenario" onPress={reset} style={{ marginTop: S.xxl }} />
       <View style={{ height: 40 }} />
     </ScrollView>
   );
 }
 
-const st = StyleSheet.create({
+const st = makeStyles((C, S, F, shadow) => StyleSheet.create({
+  modes: {
+    flexDirection: 'row', gap: S.sm, marginTop: S.md,
+  },
+  mode: {
+    flex: 1, minHeight: 44, borderRadius: S.radiusSm,
+    borderWidth: 1, borderColor: C.line, backgroundColor: C.panel,
+    alignItems: 'center', justifyContent: 'center',
+  },
+  modeOn: { backgroundColor: C.accentFill, borderColor: C.accentFill },
+  modeText: { fontSize: 13.5, fontWeight: '700', color: C.text },
   page: { padding: S.xl, paddingTop: S.md },
   head: { flexDirection: 'row', alignItems: 'center', gap: S.lg },
   stats: { flexDirection: 'row', gap: S.md },
@@ -117,4 +151,4 @@ const st = StyleSheet.create({
   quote: { fontSize: 11.5, color: C.muted, marginTop: 3, fontStyle: 'italic' },
   hearts: { fontSize: 13, color: C.accent, fontWeight: '800' },
   rating: { fontSize: 13, color: C.amber, fontWeight: '800' },
-});
+}));

@@ -5,7 +5,7 @@ import {
 import Animated, {
   useSharedValue, useAnimatedStyle, withSpring, withTiming, runOnJS,
 } from 'react-native-reanimated';
-import { C, S, F, shadow } from '../theme';
+import { C, S, F, shadow, makeStyles } from '../theme';
 
 const H = Dimensions.get('window').height;
 
@@ -80,7 +80,7 @@ export default function Sheet({ visible, onClose, title, children }) {
   );
 }
 
-const st = StyleSheet.create({
+const st = makeStyles((C, S, F, shadow) => StyleSheet.create({
   root: { flex: 1, justifyContent: 'flex-end' },
   backdrop: { backgroundColor: C.overlay },
   card: {
@@ -94,4 +94,4 @@ const st = StyleSheet.create({
   },
   head: { flexDirection: 'row', alignItems: 'flex-start', gap: S.md, marginBottom: S.sm },
   close: { padding: 2 },
-});
+}));

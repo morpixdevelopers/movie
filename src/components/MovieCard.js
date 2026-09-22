@@ -1,6 +1,6 @@
 import React from 'react';
 import { View, Text, Pressable, StyleSheet } from 'react-native';
-import { C, S, F, shadow } from '../theme';
+import { C, S, F, shadow, makeStyles } from '../theme';
 import { Btn, Poster } from '../ui';
 import { findMovie, metrics, myJourney } from '../logic';
 
@@ -120,12 +120,12 @@ export default function MovieCard({ state, question, row, index, closed, isOp, p
   );
 }
 
-const st = StyleSheet.create({
+const st = makeStyles((C, S, F, shadow) => StyleSheet.create({
   card: { backgroundColor: C.panel, borderRadius: S.radius, overflow: 'hidden' },
   cardOn: { borderWidth: 2, borderColor: C.accent },
   poster: { height: 196, justifyContent: 'flex-end' },
   rank: {
-    position: 'absolute', top: 9, left: 9, backgroundColor: C.accent,
+    position: 'absolute', top: 9, left: 9, backgroundColor: C.accentFill,
     borderRadius: 8, width: 24, height: 24,
     alignItems: 'center', justifyContent: 'center',
   },
@@ -135,7 +135,7 @@ const st = StyleSheet.create({
     borderWidth: 1, borderColor: C.tintLine, borderRadius: 5,
     paddingHorizontal: 5, paddingVertical: 3,
   },
-  opLabelText: { color: '#ff9db0', fontSize: 7.5, fontWeight: '800', letterSpacing: 0.4 },
+  opLabelText: { color: C.accentHi, fontSize: 7.5, fontWeight: '800', letterSpacing: 0.4 },
   posterTitle: {
     color: '#fff', fontWeight: '800', fontSize: 14, textAlign: 'center',
     letterSpacing: 0.8, paddingHorizontal: 11, marginBottom: 13, fontSize: 15,
@@ -156,4 +156,4 @@ const st = StyleSheet.create({
   done: { textAlign: 'center', color: C.accent, fontSize: 12, fontWeight: '800', marginTop: 8 },
   doneSub: { textAlign: 'center', color: C.muted, fontSize: 10, marginTop: 2, lineHeight: 14 },
   link: { color: C.accent, fontSize: 10, textAlign: 'center', marginTop: 9 },
-});
+}));
