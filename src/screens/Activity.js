@@ -42,9 +42,10 @@ export default function Activity({ onOpen, onAsk }) {
         <View style={st.empty}>
           <Text style={F.h3}>Nothing yet.</Text>
           <Text style={[F.small, { marginTop: 6, textAlign: 'center' }]}>
-            Recommend a movie, or ask a question. This fills up when your taste helps someone.
+            Suggest a movie on someone’s post, or ask for one yourself.
+            This fills up when your taste helps someone.
           </Text>
-          <Btn title="Ask a question" onPress={onAsk} style={{ marginTop: S.lg }} />
+          <Btn title="Ask the community" onPress={onAsk} style={{ marginTop: S.lg }} />
         </View>
       ) : (
         items.map((a, i) => (

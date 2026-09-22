@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import {
-  View, Text, ScrollView, Pressable, StyleSheet, TextInput, useWindowDimensions, Platform,
+  View, Text, ScrollView, Pressable, StyleSheet, TextInput, useWindowDimensions,
+  Platform, Alert,
 } from 'react-native';
 import Animated, { FadeInDown, FadeIn } from 'react-native-reanimated';
 import Sheet from '../components/Sheet';
@@ -39,6 +40,7 @@ export default function Collection({ questionId, onBack }) {
   const [remote, setRemote] = useState([]);
   const [looking, setLooking] = useState(false);
   const [chosen, setChosen] = useState(null); // an IMDb pick, with its poster
+  const [draft, setDraft] = useState('');     // text being edited, question or reason
   const debounce = useRef(null);
 
   // Look the typed title up on IMDb so people get the real poster.
@@ -91,14 +93,54 @@ export default function Collection({ questionId, onBack }) {
   const close = () => {
     setSheet(null); setTitle(''); setReason('');
     setRating(null); setExpText(''); setPicked([]);
-    setRemote([]); setChosen(null);
+    setRemote([]); setChosen(null); setDraft('');
   };
 
   const sheetTitle =
     sheet?.kind === 'recommend' ? 'Pass on a good movie.'
     : sheet?.kind === 'experience' ? 'Was it a good watch?'
     : sheet?.kind === 'hearts' ? 'Who helped you choose?'
+    : sheet?.kind === 'editQuestion' ? 'Say it a different way.'
+    : sheet?.kind === 'editReason' ? 'Put it better.'
     : '';
+
+  // Deleting a live question takes other people's work with it, so the
+  // confirmation says exactly what is lost before it happens.
+  const confirmDeleteQuestion = () => {
+    const backers = new Set(recs.map((r) => r.userId)).size;
+    Alert.alert(
+      'Delete this question?',
+      backers
+        ? `${backers} ${backers === 1 ? 'person has' : 'people have'} put movies forward. ` +
+          'Deleting takes their recommendations and every reply with it. This cannot be undone.'
+        : 'Nobody has answered yet, so nothing else goes with it. This cannot be undone.',
+      [
+        { text: 'Keep it', style: 'cancel' },
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: () => { if (run({ type: 'deleteQuestion', questionId: q.id }).state) onBack(); },
+        },
+      ],
+    );
+  };
+
+  const confirmWithdraw = (rec) => {
+    Alert.alert(
+      poll ? 'Withdraw your vote?' : `Withdraw ${findMovie(state, rec.movieId).title}?`,
+      poll
+        ? 'Your vote comes off the tally. You can vote again while the poll is open.'
+        : 'It comes off the list along with any replies to it. You can recommend it again while suggestions are open.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Withdraw',
+          style: 'destructive',
+          onPress: () => run({ type: 'deleteRecommendation', recommendationId: rec.id }),
+        },
+      ],
+    );
+  };
 
   const preset = sheet?.kind === 'recommend' ? sheet.movieId : null;
   const known = resolveMovie(state, title);
@@ -162,6 +204,7 @@ export default function Collection({ questionId, onBack }) {
           </View>
 
           <Text style={st.qTitle}>🎬 {q.text}</Text>
+          {!!q.editedAt && <Text style={[F.tiny, { marginTop: 4 }]}>Edited {ago(q.editedAt)}</Text>}
 
           {(q.lang || q.genre || q.constraints) ? (
             <View style={st.request}>
@@ -219,6 +262,22 @@ export default function Collection({ questionId, onBack }) {
               )}
             </Text>
           </View>
+
+          {/* your own question, while it is still open */}
+          {isOp && !closed && (
+            <View style={st.owner}>
+              <Pressable
+                style={({ pressed }) => [st.ownerBtn, { flex: 1 }, pressed && { backgroundColor: C.chip }]}
+                onPress={() => { setDraft(q.text); setSheet({ kind: 'editQuestion' }); }}>
+                <Text style={st.ownerText}>✎  Edit {poll ? 'poll' : 'question'}</Text>
+              </Pressable>
+              <Pressable
+                style={({ pressed }) => [st.ownerBtn, st.ownerDanger, pressed && { backgroundColor: C.tintLine }]}
+                onPress={confirmDeleteQuestion}>
+                <Text style={[st.ownerText, { color: C.accent }]}>Delete</Text>
+              </Pressable>
+            </View>
+          )}
         </View>
 
         <View style={st.flow}>
@@ -355,8 +414,19 @@ export default function Collection({ questionId, onBack }) {
                   ) : null}
                 </View>
                 <Text style={st.replyBody}>{e.text || 'Marked as finished.'}</Text>
+                {!isExp && !!e.editedAt && <Text style={[F.tiny, { marginTop: 4 }]}>Edited {ago(e.editedAt)}</Text>}
                 <View style={st.replyFooter}>
                   <View style={st.tag}><Text style={st.tagText}>{findMovie(state, e.movieId).title}</Text></View>
+                  {!isExp && e.userId === state.meId && !closed && (
+                    <View style={st.mine}>
+                      <Pressable hitSlop={8} onPress={() => { setDraft(e.text); setSheet({ kind: 'editReason', recId: e.id }); }}>
+                        <Text style={st.mineLink}>Edit</Text>
+                      </Pressable>
+                      <Pressable hitSlop={8} onPress={() => confirmWithdraw(e)}>
+                        <Text style={[st.mineLink, { color: C.accent }]}>Withdraw</Text>
+                      </Pressable>
+                    </View>
+                  )}
                 </View>
               </View>
             );
@@ -567,6 +637,51 @@ export default function Collection({ questionId, onBack }) {
                   }} />
               </>
             )}
+
+            {sheet?.kind === 'editQuestion' && (
+              <>
+                <Text style={F.small}>
+                  People answer the question you asked. Changing it while {people === 0 ? 'nobody has' : 'people have'} answered
+                  is fine — the wording moves, the movies stay.
+                </Text>
+                <TextInput
+                  style={[st.input, { marginTop: S.md, minHeight: 96 }]} multiline autoFocus
+                  placeholder="What are you looking for?"
+                  placeholderTextColor={C.dim}
+                  value={draft} onChangeText={setDraft}
+                />
+                <Text style={[F.tiny, { marginTop: 6 }]}>{draft.trim().length} characters · 10 minimum</Text>
+                <Btn
+                  title="Save changes"
+                  disabled={draft.trim().length < 10 || draft.trim() === q.text}
+                  style={{ marginTop: S.lg }}
+                  onPress={() => {
+                    if (run({ type: 'editQuestion', questionId: q.id, text: draft }).state) close();
+                  }} />
+              </>
+            )}
+
+            {sheet?.kind === 'editReason' && (
+              <>
+                <Text style={F.small}>
+                  The reason is what makes a recommendation worth something. The movie itself
+                  stays — withdraw it if you want to put a different one forward.
+                </Text>
+                <TextInput
+                  style={[st.input, { marginTop: S.md, minHeight: 96 }]} multiline autoFocus
+                  placeholder="Why this one?"
+                  placeholderTextColor={C.dim}
+                  value={draft} onChangeText={setDraft}
+                />
+                <Btn
+                  title="Save changes"
+                  disabled={!draft.trim()}
+                  style={{ marginTop: S.lg }}
+                  onPress={() => {
+                    if (run({ type: 'editRecommendation', recommendationId: sheet.recId, text: draft }).state) close();
+                  }} />
+              </>
+            )}
       </Sheet>
 
       <Voted
@@ -617,6 +732,14 @@ const st = StyleSheet.create({
   },
   statusClosed: { backgroundColor: C.panelHi, borderColor: C.line },
   statusText: { fontSize: 10, color: C.accent },
+  owner: { flexDirection: 'row', gap: S.sm, marginTop: 18 },
+  ownerBtn: {
+    borderRadius: S.radiusSm, borderWidth: 1, borderColor: C.line,
+    backgroundColor: C.panel, paddingHorizontal: S.lg,
+    minHeight: 44, alignItems: 'center', justifyContent: 'center',
+  },
+  ownerDanger: { borderColor: C.tintLine, backgroundColor: C.tint },
+  ownerText: { fontSize: 13.5, fontWeight: '700', color: C.text },
   qTitle: { fontSize: 23, fontWeight: '800', color: C.text, lineHeight: 31, marginVertical: 18, letterSpacing: -0.5 },
   request: { borderTopWidth: 1, borderBottomWidth: 1, borderColor: C.line, paddingVertical: 13, marginBottom: 18 },
   requestLab: { fontSize: 10, fontWeight: '600', color: C.text, opacity: 0.85, letterSpacing: 0.6 },
@@ -644,7 +767,9 @@ const st = StyleSheet.create({
   tabText: { fontSize: 11, color: C.muted, fontWeight: '600' },
   reply: { paddingVertical: 17, borderBottomWidth: 1, borderBottomColor: C.line },
   replyBody: { ...F.small, color: C.text, opacity: 0.85, marginTop: 10, marginLeft: 42, lineHeight: 21 },
-  replyFooter: { marginLeft: 42, marginTop: 10, flexDirection: 'row' },
+  replyFooter: { marginLeft: 42, marginTop: 10, flexDirection: 'row', alignItems: 'center' },
+  mine: { marginLeft: 'auto', flexDirection: 'row', gap: 16 },
+  mineLink: { fontSize: 12, fontWeight: '700', color: C.muted },
   rating: { color: C.amber, fontSize: 12 },
   input: {
     backgroundColor: C.input, borderWidth: 1, borderColor: C.line,

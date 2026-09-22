@@ -1,5 +1,5 @@
-import React, { useEffect } from 'react';
-import { View, Text, StyleSheet, Modal } from 'react-native';
+import React, { useEffect, useRef } from 'react';
+import { View, Text, Pressable, StyleSheet, Modal } from 'react-native';
 import Animated, {
   useSharedValue, useAnimatedStyle, withSpring, withTiming, withDelay,
   withSequence, withRepeat, runOnJS, Easing,
@@ -22,10 +22,22 @@ export default function Posted({ visible, onDone }) {
   const pill = useSharedValue(0);
   const veil = useSharedValue(0);
 
+  // a tap and the timer can race — whoever gets here first wins
+  const spent = useRef(false);
+  const leave = () => {
+    if (spent.current) return;
+    spent.current = true;
+    veil.value = withTiming(0, { duration: 260 }, (finished) => {
+      'worklet';
+      if (finished) runOnJS(onDone)();
+    });
+  };
+
   useEffect(() => {
     if (!visible) {
       badge.value = 0; tick.value = 0; ring1.value = 0;
       ring2.value = 0; copy.value = 0; pill.value = 0; veil.value = 0;
+      spent.current = false;
       return;
     }
     veil.value = withTiming(1, { duration: 200 });
@@ -36,12 +48,7 @@ export default function Posted({ visible, onDone }) {
     copy.value = withDelay(380, withTiming(1, { duration: 360, easing: Easing.out(Easing.cubic) }));
     pill.value = withDelay(900, withTiming(1, { duration: 400 }));
 
-    const t = setTimeout(() => {
-      veil.value = withTiming(0, { duration: 260 }, (finished) => {
-        'worklet';
-        if (finished) runOnJS(onDone)();
-      });
-    }, 2100);
+    const t = setTimeout(leave, 5000);
     return () => clearTimeout(t);
   }, [visible]);
 
@@ -94,9 +101,12 @@ export default function Posted({ visible, onDone }) {
             People are seeing it now. We’ll nudge you the moment{'\n'}someone puts a movie forward.
           </Text>
           <Animated.View style={[st.pill, pillStyle]}>
-            <Text style={st.pillText}>TAKING SUGGESTIONS · 7 DAYS</Text>
+            <Text style={st.pillText}>TAKING SUGGESTIONS UNTIL YOU PICK</Text>
           </Animated.View>
         </Animated.View>
+
+        {/* last child, so it sits over the badge and copy and catches every tap */}
+        <Pressable style={StyleSheet.absoluteFill} onPress={leave} />
       </Animated.View>
     </Modal>
   );

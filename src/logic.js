@@ -397,6 +397,59 @@ export function apply(state, action) {
       return { state: s, questionId: id, kind }; // the Posted overlay is the feedback
     }
 
+    // Your question stays yours while it is open. Once you have picked, the
+    // thread is a record other people watch from — see deleteQuestion.
+    case 'editQuestion': {
+      if (!q) return fail('Question not found.');
+      if (q.userId !== s.meId)
+        return fail(`Only ${findUser(s, q.userId).name} can edit this question.`);
+      if (!isOpen(q))
+        return fail('This is closed. People chose movies for the question as it was asked.');
+
+      const body = String(action.text ?? q.text).trim();
+      if (!body) return fail('Write what you are looking for.');
+      if (body.length < ASK_MIN)
+        return fail(`Too short — ${body.length} of ${ASK_MIN} characters.`);
+
+      q.text = body;
+      if ('constraints' in action) q.constraints = String(action.constraints || '').trim();
+      if ('lang' in action) q.lang = action.lang;
+      if ('genre' in action) q.genre = action.genre;
+      q.editedAt = Date.now();
+      // Poll options are deliberately not editable: people have already voted
+      // against this exact list, and swapping an option would move their vote.
+      return { state: s, toast: 'Question updated.' };
+    }
+
+    case 'deleteQuestion': {
+      if (!q) return fail('Question not found.');
+      if (q.userId !== s.meId)
+        return fail(`Only ${findUser(s, q.userId).name} can delete this question.`);
+      if (!isOpen(q))
+        return fail('You already picked from this one. The collection belongs to everyone now.');
+
+      const recIds = new Set(
+        s.recommendations.filter((r) => r.questionId === q.id).map((r) => r.id)
+      );
+      const lost = new Set(
+        s.recommendations.filter((r) => r.questionId === q.id).map((r) => r.userId)
+      ).size;
+
+      s.questions = s.questions.filter((x) => x.id !== q.id);
+      s.recommendations = s.recommendations.filter((r) => r.questionId !== q.id);
+      s.replies = s.replies.filter((r) => !recIds.has(r.recommendationId));
+      s.comments = s.comments.filter((c) => c.questionId !== q.id);
+      s.journeys = s.journeys.filter((j) => j.questionId !== q.id);
+      s.hearts = s.hearts.filter((h) => h.questionId !== q.id);
+
+      return {
+        state: s, deleted: q.id,
+        toast: lost
+          ? `Question deleted, along with what ${lost} ${lost === 1 ? 'person' : 'people'} put forward.`
+          : 'Question deleted.',
+      };
+    }
+
     case 'suggest': {
       if (!q) return fail('Question not found.');
       if (q.kind === 'poll')
@@ -445,6 +498,42 @@ export function apply(state, action) {
       ).size;
       // no toast: the Recommended overlay is the feedback
       return { state: s, movieId, joined, count: backers };
+    }
+
+    // Your own recommendation, while the list is still being built. Once the
+    // asker picks, the list is frozen and so is everything on it.
+    case 'editRecommendation': {
+      const rec = s.recommendations.find((r) => r.id === action.recommendationId);
+      if (!rec) return fail('That recommendation is gone.');
+      if (rec.userId !== s.meId) return fail('You can only edit your own recommendation.');
+      const rq = findQuestion(s, rec.questionId);
+      if (rq && !isOpen(rq))
+        return fail('The list is frozen — people chose based on what you wrote.');
+
+      const body = String(action.text || '').trim();
+      if (!body) return fail('Add a short reason — that is what makes it worth something.');
+      // The film itself is not editable: withdraw and recommend again instead,
+      // so the backer count on each movie always matches who actually backs it.
+      rec.text = body;
+      rec.editedAt = Date.now();
+      return { state: s, toast: 'Your reason was updated.' };
+    }
+
+    case 'deleteRecommendation': {
+      const rec = s.recommendations.find((r) => r.id === action.recommendationId);
+      if (!rec) return fail('That recommendation is gone.');
+      if (rec.userId !== s.meId) return fail('You can only withdraw your own recommendation.');
+      const rq = findQuestion(s, rec.questionId);
+      if (rq && !isOpen(rq))
+        return fail('The list is frozen — this is part of the record now.');
+
+      const title = findMovie(s, rec.movieId).title;
+      s.recommendations = s.recommendations.filter((r) => r.id !== rec.id);
+      s.replies = s.replies.filter((r) => r.recommendationId !== rec.id);
+      return {
+        state: s,
+        toast: rq && rq.kind === 'poll' ? 'Your vote was withdrawn.' : `${title} withdrawn.`,
+      };
     }
 
     case 'vote': {

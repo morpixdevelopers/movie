@@ -165,7 +165,7 @@ function AskButton({ onPress }) {
     <View style={st.askWrap}>
       <Animated.View style={style}>
         <Pressable
-          accessibilityLabel="Ask a question"
+          accessibilityLabel="Ask the community"
           onPressIn={() => { scale.value = withSpring(0.88, { damping: 15, stiffness: 420 }); }}
           onPressOut={() => {
             scale.value = withSequence(
