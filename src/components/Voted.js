@@ -7,7 +7,7 @@ import Animated, {
 import { C, S, F, makeStyles } from '../theme';
 
 /**
- * After voting in a poll. Deliberately quieter than the recommend and heart
+ * After voting in a poll. Deliberately quieter than the recommend
  * moments — you've had your say, and the decision isn't yours.
  */
 export default function Voted({ visible, movie, asker, onDone }) {

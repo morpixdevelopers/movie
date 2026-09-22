@@ -84,7 +84,7 @@ export default function Discover({ onOpenProfile }) {
 
       <Text style={[F.h2, { marginTop: S.xxl }]}>Trusted recommenders</Text>
       <Text style={[F.tiny, { marginBottom: S.md }]}>
-        Hearts are only earned when someone watched the movie and said it helped.
+        Ranked by how people rated the films they watched on someone’s word.
       </Text>
       {people.map((p, i) => (
         <Pressable key={p.user.id} onPress={onOpenProfile} style={st.person}>
@@ -99,7 +99,7 @@ export default function Discover({ onOpenProfile }) {
               {p.avg !== null ? ` · ★ ${p.avg}` : ''}
             </Text>
           </View>
-          <Text style={st.rating}>♥ {p.hearts}</Text>
+          <Text style={st.rating}>{p.avg !== null ? `★ ${p.avg}` : '—'}</Text>
         </Pressable>
       ))}
 

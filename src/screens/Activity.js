@@ -6,7 +6,7 @@ import { Btn } from '../ui';
 import { useStore } from '../store';
 import { activity, todo, ago, findUser } from '../logic';
 
-const GLYPH = { rec: '♧', watching: '◉', finished: '✓', heart: '♥' };
+const GLYPH = { rec: '♧', watching: '◉', finished: '✓' };
 
 export default function Activity({ onOpen, onAsk }) {
   const { state } = useStore();
@@ -51,8 +51,8 @@ export default function Activity({ onOpen, onAsk }) {
         items.map((a, i) => (
           <Animated.View key={a.id} entering={FadeInDown.delay(i * 55).springify().damping(18)}>
           <Pressable onPress={() => onOpen(a.questionId)} style={st.row}>
-            <View style={[st.icon, a.kind === 'heart' && { backgroundColor: C.tint }]}>
-              <Text style={[st.iconText, a.kind === 'heart' && { color: C.accent }]}>
+            <View style={[st.icon, a.kind === 'finished' && { backgroundColor: C.tint }]}>
+              <Text style={[st.iconText, a.kind === 'finished' && { color: C.accent }]}>
                 {GLYPH[a.kind]}
               </Text>
             </View>

@@ -5,7 +5,6 @@ import {
 } from 'react-native';
 import Animated, { FadeInDown, FadeIn } from 'react-native-reanimated';
 import Sheet from '../components/Sheet';
-import Thanked from '../components/Thanked';
 import Recommended from '../components/Recommended';
 import PollBoard from '../components/PollBoard';
 import Voted from '../components/Voted';
@@ -20,6 +19,7 @@ import {
 } from '../logic';
 
 const RATING_LABELS = ['Didn’t like it', 'Meh', 'Decent', 'Really good', 'Loved it'];
+const RATING_FACES = ['😞', '😐', '🙂', '😀', '🤩'];
 
 export default function Collection({ questionId, onBack }) {
   const { state, run } = useStore();
@@ -34,7 +34,6 @@ export default function Collection({ questionId, onBack }) {
   const [expText, setExpText] = useState('');
   const [picked, setPicked] = useState([]);
   const [comment, setComment] = useState('');
-  const [thanked, setThanked] = useState(null); // names awaiting the hearts animation
   const [added, setAdded] = useState(null);     // movie awaiting the recommend animation
   const [voted, setVoted] = useState(null);     // movie awaiting the vote animation
   const [remote, setRemote] = useState([]);
@@ -59,21 +58,6 @@ export default function Collection({ questionId, onBack }) {
     return () => clearTimeout(debounce.current);
   }, [title]);
 
-  // Thanking everyone is the normal case, so start with them all ticked.
-  useEffect(() => {
-    if (sheet?.kind !== 'hearts') return;
-    const already = new Set(
-      state.hearts
-        .filter((h) => h.questionId === questionId && h.movieId === sheet.movieId && h.fromUserId === state.meId)
-        .map((h) => h.toUserId)
-    );
-    const all = [...new Set(
-      state.recommendations
-        .filter((r) => r.questionId === questionId && r.movieId === sheet.movieId && r.userId !== state.meId)
-        .map((r) => r.userId)
-    )].filter((u) => !already.has(u));
-    setPicked(all);
-  }, [sheet?.kind, sheet?.movieId]);
 
   if (!q) return null;
 
@@ -99,7 +83,6 @@ export default function Collection({ questionId, onBack }) {
   const sheetTitle =
     sheet?.kind === 'recommend' ? 'Pass on a good movie.'
     : sheet?.kind === 'experience' ? 'Was it a good watch?'
-    : sheet?.kind === 'hearts' ? 'Who helped you choose?'
     : sheet?.kind === 'editQuestion' ? 'Say it a different way.'
     : sheet?.kind === 'editReason' ? 'Put it better.'
     : '';
@@ -147,14 +130,9 @@ export default function Collection({ questionId, onBack }) {
   const onListAlready = known && list.find((r) => r.movieId === known.id);
   const matches = preset ? [] : searchMovies(state, title);
 
-  const alreadyThanked = new Set(
-    sheet?.kind === 'hearts'
-      ? state.hearts
-          .filter((h) => h.questionId === q.id && h.movieId === sheet.movieId && h.fromUserId === state.meId)
-          .map((h) => h.toUserId)
-      : []
-  );
 
+  // How many other people put this film forward — the experience sheet tells
+  // you the rating lands on them, since it is the only thing that does.
   const stakers = sheet?.kind === 'experience'
     ? new Set(
         recs.filter((r) => r.movieId === sheet.movieId && r.userId !== state.meId)
@@ -162,12 +140,6 @@ export default function Collection({ questionId, onBack }) {
       ).size
     : 0;
 
-  const heartCandidates = sheet?.kind === 'hearts'
-    ? [...new Map(
-        recs.filter((r) => r.movieId === sheet.movieId && r.userId !== state.meId)
-          .map((r) => [r.userId, r])
-      ).values()]
-    : [];
 
   const shown = tab === 'reasons'
     ? recs.filter((r) => focusMovie === 'all' || r.movieId === focusMovie)
@@ -283,7 +255,7 @@ export default function Collection({ questionId, onBack }) {
         <View style={st.flow}>
           <FlowItem n="01 · Build the collection" sub={closed ? 'Suggestions preserved' : 'Suggest and support'} on={!closed} />
           <FlowItem n="02 · Choose your movie" sub={closed ? 'Open to everyone' : 'OP makes the first pick'} on={closed} />
-          <FlowItem n="03 · Pass it forward" sub="Watch, share, thank" on={closed} />
+          <FlowItem n="03 · Pass it forward" sub="Watch, rate, share" on={closed} />
         </View>
 
         {poll && !closed ? (
@@ -339,8 +311,7 @@ export default function Collection({ questionId, onBack }) {
                 onSupport={() => setSheet({ kind: 'recommend', movieId: row.movieId })}
                 onFinish={() => {
                   const j = myJourney(state, q.id, row.movieId);
-                  if (j?.status === 'finished') setSheet({ kind: 'hearts', movieId: row.movieId });
-                  else setSheet({ kind: 'experience', movieId: row.movieId });
+                  if (j?.status !== 'finished') setSheet({ kind: 'experience', movieId: row.movieId });
                 }}
                 onWhy={() => { setFocusMovie(row.movieId); setTab('reasons'); }}
               />
@@ -550,7 +521,7 @@ export default function Collection({ questionId, onBack }) {
 
             {sheet?.kind === 'experience' && (
               <>
-                <Text style={F.small}>
+                <Text style={st.credit}>
                   {stakers === 0
                     ? `Tell the next person how ${findMovie(state, sheet.movieId).title} went.`
                     : `Tell them how ${findMovie(state, sheet.movieId).title} went — the ${
@@ -562,6 +533,7 @@ export default function Collection({ questionId, onBack }) {
                   {[1, 2, 3, 4, 5].map((n) => (
                     <Pressable key={n} onPress={() => setRating(n)}
                       style={[st.rate, rating === n && { backgroundColor: C.accentFill, borderColor: C.accentFill }]}>
+                      <Text style={st.rateFace}>{RATING_FACES[n - 1]}</Text>
                       <Text style={[st.rateN, rating === n && { color: C.onAccent }]}>{n}</Text>
                       <Text style={[st.rateL, rating === n && { color: C.onAccent }]} numberOfLines={2}>
                         {RATING_LABELS[n - 1]}
@@ -581,62 +553,11 @@ export default function Collection({ questionId, onBack }) {
                       type: 'finish', questionId: q.id, movieId: sheet.movieId,
                       rating, text: expText,
                     });
-                    if (res.state) setSheet({ kind: 'hearts', movieId: sheet.movieId });
+                    if (res.state) close();
                   }} />
               </>
             )}
 
-            {sheet?.kind === 'hearts' && (
-              <>
-                <Text style={F.small}>
-                  Everyone who recommended {findMovie(state, sheet.movieId).title} gets a heart.
-                  Untick anyone whose words didn’t actually reach you.
-                </Text>
-                {heartCandidates.length === 0 ? (
-                  <View style={st.empty}><Text style={F.small}>Nobody else recommended this one.</Text></View>
-                ) : heartCandidates.map((r) => {
-                  const done = alreadyThanked.has(r.userId);
-                  const on = done || picked.includes(r.userId);
-                  return (
-                    <Pressable key={r.userId}
-                      disabled={done}
-                      onPress={() => setPicked(on ? picked.filter((x) => x !== r.userId) : [...picked, r.userId])}
-                      style={[st.person, on && { borderColor: C.accent }, done && { opacity: 0.6 }]}>
-                      <Avatar name={findUser(state, r.userId).name} size={28} />
-                      <View style={{ flex: 1 }}>
-                        <Text style={st.username}>{findUser(state, r.userId).name}</Text>
-                        <Text style={F.tiny} numberOfLines={1}>{r.text}</Text>
-                      </View>
-                      <Text style={{ color: on ? C.accent : C.dim, fontSize: 17 }}>♥</Text>
-                      {done && <Text style={st.thanked}>THANKED</Text>}
-                    </Pressable>
-                  );
-                })}
-                {heartCandidates.filter((r) => !alreadyThanked.has(r.userId)).length > 1 && (() => {
-                  const selectable = heartCandidates
-                    .map((r) => r.userId)
-                    .filter((u) => !alreadyThanked.has(u));
-                  const allOn = selectable.every((u) => picked.includes(u));
-                  return (
-                    <Btn small kind="ghost"
-                      title={allOn ? 'Thank just some of them' : '♥ Thank everyone who recommended it'}
-                      style={{ marginTop: S.md }}
-                      onPress={() => setPicked(allOn ? [] : selectable)} />
-                  );
-                })()}
-                <Btn
-                  title={picked.length === 0
-                    ? 'Pick at least one'
-                    : `Give ${picked.length} heart${picked.length === 1 ? '' : 's'}`}
-                  disabled={picked.length === 0}
-                  style={{ marginTop: S.lg }}
-                  onPress={() => {
-                    const title = findMovie(state, sheet.movieId).title;
-                    const res = run({ type: 'hearts', questionId: q.id, movieId: sheet.movieId, toUserIds: picked });
-                    if (res.state) { close(); setThanked({ names: res.thanked || [], movie: title }); }
-                  }} />
-              </>
-            )}
 
             {sheet?.kind === 'editQuestion' && (
               <>
@@ -700,11 +621,6 @@ export default function Collection({ questionId, onBack }) {
         onDone={() => setAdded(null)}
       />
 
-      <Thanked
-        visible={!!thanked}
-        movie={thanked?.movie}
-        onDone={() => setThanked(null)}
-      />
     </>
   );
 }
@@ -776,6 +692,12 @@ const st = makeStyles((C, S, F, shadow) => StyleSheet.create({
     borderRadius: S.radiusSm, padding: S.md, color: C.text, fontSize: 14, minHeight: 48,
   },
   fieldLab: { fontSize: 12, fontWeight: '600', color: C.text, marginTop: S.lg, marginBottom: S.sm },
+  credit: {
+    ...F.small, color: C.text, opacity: 0.9, lineHeight: 19,
+    marginTop: S.md, padding: S.md,
+    backgroundColor: C.tint, borderRadius: S.radiusSm,
+    borderLeftWidth: 3, borderLeftColor: C.accentFill,
+  },
   hint: { fontSize: 10.5, color: C.dim, marginTop: S.sm, lineHeight: 15 },
   suggestItem: {
     flexDirection: 'row', alignItems: 'center', gap: S.sm,
@@ -788,14 +710,12 @@ const st = makeStyles((C, S, F, shadow) => StyleSheet.create({
   picked: { color: C.accent, fontSize: 16, fontWeight: '800' },
   remoteLab: { ...F.label, marginTop: S.md, marginBottom: 2 },
   rate: {
-    flex: 1, minHeight: 62, borderWidth: 1, borderColor: C.line, borderRadius: 9,
-    alignItems: 'center', justifyContent: 'center', paddingHorizontal: 2, gap: 2,
+    flex: 1, minHeight: 78, borderWidth: 1, borderColor: C.line, borderRadius: 9,
+    alignItems: 'center', justifyContent: 'center', paddingHorizontal: 2,
+    paddingVertical: 6, gap: 1,
   },
-  rateN: { fontSize: 16, fontWeight: '800', color: C.text },
+  // emoji ignore colour, so the face stays legible on the filled state too
+  rateFace: { fontSize: 19, lineHeight: 24 },
+  rateN: { fontSize: 13, fontWeight: '800', color: C.text },
   rateL: { fontSize: 7.5, color: C.muted, textAlign: 'center', lineHeight: 10 },
-  thanked: { fontSize: 8, fontWeight: '800', color: C.accent, letterSpacing: 0.6, marginLeft: 6 },
-  person: {
-    flexDirection: 'row', alignItems: 'center', gap: S.md, marginTop: S.sm,
-    borderWidth: 1, borderColor: C.line, borderRadius: 9, padding: S.md, minHeight: 56,
-  },
 }));

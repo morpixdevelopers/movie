@@ -62,10 +62,10 @@ export default function Recommended({ visible, movie, count = 1, joined, asker, 
           <Text style={st.title}>Thanks for the{'\n'}recommendation.</Text>
           <Text style={st.sub}>
             {joined
-              ? `You’re the ${ordinal(count)} to back ${movie.title}. If it lands, the heart is yours.`
+              ? `You’re the ${ordinal(count)} to back ${movie.title}. How they rate it lands on your name.`
               : asker
-                ? `If ${asker} watches ${movie.title} and loves it, that comes back to you as a heart.`
-                : `If someone watches ${movie.title} and loves it, that comes back to you as a heart.`}
+                ? `If ${asker} watches ${movie.title}, the rating they give it comes back to you.`
+                : `If someone watches ${movie.title}, the rating they give it comes back to you.`}
           </Text>
         </Animated.View>
       </Animated.View>

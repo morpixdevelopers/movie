@@ -96,9 +96,5 @@ export function seed() {
       { id: 'j1', questionId: 'q2', movieId: 'grand', userId: 'y', status: 'finished', rating: 5, text: 'Exactly the small escape I needed.', createdAt: now - 6 * 86400000, finishedAt: now - 5 * 86400000 },
       { id: 'j2', questionId: 'q2', movieId: 'arrival', userId: 'x', status: 'watching', rating: null, text: '', createdAt: now - 4 * 86400000, finishedAt: null },
     ],
-    hearts: [
-      { id: 'h1', questionId: 'q2', movieId: 'grand', fromUserId: 'y', toUserId: 'u1', createdAt: now - 5 * 86400000 },
-      { id: 'h2', questionId: 'q2', movieId: 'grand', fromUserId: 'y', toUserId: 'u2', createdAt: now - 5 * 86400000 },
-    ],
   };
 }

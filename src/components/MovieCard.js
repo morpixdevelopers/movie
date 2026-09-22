@@ -13,15 +13,6 @@ export default function MovieCard({ state, question, row, index, closed, isOp, p
   const supported = state.recommendations.some(
     (r) => r.questionId === question.id && r.movieId === row.movieId && r.userId === state.meId
   );
-  // anyone else who put this film forward, and whether you've thanked them yet
-  const backers = new Set(
-    state.recommendations
-      .filter((r) => r.questionId === question.id && r.movieId === row.movieId && r.userId !== state.meId)
-      .map((r) => r.userId)
-  );
-  const thanked = state.hearts.some(
-    (h) => h.questionId === question.id && h.movieId === row.movieId && h.fromUserId === state.meId
-  );
 
   return (
     <View style={[st.card, shadow(1), { width }, journey && st.cardOn]}>
@@ -74,12 +65,7 @@ export default function MovieCard({ state, question, row, index, closed, isOp, p
             <Text style={st.done}>Thanks for watching</Text>
             <Text style={st.doneSub}>
               {Number.isFinite(journey.rating) ? `You gave it ${journey.rating}/5` : 'Marked as finished'}
-              {thanked ? ' · hearts sent' : ''}
             </Text>
-            {backers.size > 0 && !thanked && (
-              <Btn small title="♥ Thank who recommended it" onPress={onFinish}
-                style={{ marginTop: S.sm }} />
-            )}
           </>
         ) : poll ? (
           <Btn

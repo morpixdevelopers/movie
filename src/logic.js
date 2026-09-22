@@ -132,7 +132,7 @@ export function recommenderScore(s, userId) {
   const mine = new Set(
     s.recommendations.filter((r) => r.userId === userId).map((r) => r.questionId + '|' + r.movieId)
   );
-  if (!mine.size) return { avg: null, ratings: 0, watches: 0, recommended: 0, hearts: 0 };
+  if (!mine.size) return { avg: null, ratings: 0, watches: 0, recommended: 0 };
 
   const backers = new Map();
   s.recommendations.forEach((r) => {
@@ -154,7 +154,6 @@ export function recommenderScore(s, userId) {
     ratings: rated.length,
     watches: followed.length,
     recommended: mine.size,
-    hearts: s.hearts.filter((h) => h.toUserId === userId).length,
   };
 }
 
@@ -234,14 +233,6 @@ export function activity(s) {
       questionId: j.questionId,
     });
   });
-  s.hearts.forEach((h) => {
-    if (h.toUserId !== s.meId) return;
-    out.push({
-      id: 'h-' + h.id, at: h.createdAt, kind: 'heart',
-      text: `${findUser(s, h.fromUserId).name} thanked you for ${findMovie(s, h.movieId).title}.`,
-      questionId: h.questionId,
-    });
-  });
   return out.sort((a, b) => b.at - a.at);
 }
 
@@ -293,13 +284,10 @@ export function myRecommendations(s, userId) {
         rating: rated.length
           ? Number((rated.reduce((a, j) => a + j.rating, 0) / rated.length).toFixed(1))
           : null,
-        hearts: s.hearts.filter(
-          (h) => h.questionId === r.questionId && h.movieId === r.movieId && h.toUserId === userId
-        ).length,
         createdAt: r.createdAt,
       };
     })
-    .sort((a, b) => b.hearts - a.hearts || b.watched - a.watched || b.createdAt - a.createdAt);
+    .sort((a, b) => b.watched - a.watched || b.createdAt - a.createdAt);
 }
 
 /** Films you finished, newest first, with the rating you gave. */
@@ -321,7 +309,7 @@ export function leaderboard(s) {
   return s.users
     .map((u) => ({ user: u, ...recommenderScore(s, u.id) }))
     .filter((x) => x.recommended > 0)
-    .sort((a, b) => b.hearts - a.hearts || (b.avg || 0) - (a.avg || 0) || b.watches - a.watches);
+    .sort((a, b) => (b.avg || 0) - (a.avg || 0) || b.ratings - a.ratings || b.watches - a.watches);
 }
 
 /**
@@ -440,7 +428,6 @@ export function apply(state, action) {
       s.replies = s.replies.filter((r) => !recIds.has(r.recommendationId));
       s.comments = s.comments.filter((c) => c.questionId !== q.id);
       s.journeys = s.journeys.filter((j) => j.questionId !== q.id);
-      s.hearts = s.hearts.filter((h) => h.questionId !== q.id);
 
       return {
         state: s, deleted: q.id,
@@ -613,35 +600,6 @@ export function apply(state, action) {
       return { state: s, toast: 'Experience saved. Now tell the people who helped.' };
     }
 
-    case 'hearts': {
-      const recs = s.recommendations.filter(
-        (r) => r.questionId === action.questionId && r.movieId === action.movieId
-      );
-      const valid = new Set(recs.map((r) => r.userId));
-      // you can only thank someone who recommended this film, and never yourself
-      const want = (action.toUserIds || []).filter((to) => valid.has(to) && to !== s.meId);
-      if (!want.length) return fail('Pick at least one person who helped you choose.');
-
-      const already = (to) => s.hearts.some((h) =>
-        h.questionId === action.questionId && h.movieId === action.movieId &&
-        h.fromUserId === s.meId && h.toUserId === to);
-
-      const fresh = want.filter((to) => !already(to));
-      if (!fresh.length) {
-        return fail(want.length === 1
-          ? `You already thanked ${findUser(s, want[0]).name}.`
-          : 'You already thanked everyone you picked.');
-      }
-
-      fresh.forEach((to) => {
-        s.hearts.push({
-          id: uid(), questionId: action.questionId, movieId: action.movieId,
-          fromUserId: s.meId, toUserId: to, createdAt: Date.now(),
-        });
-      });
-      // no toast: the Thanked overlay is the feedback
-      return { state: s, thanked: fresh.map((to) => findUser(s, to).name.split(' ')[0]) };
-    }
 
     case 'comment': {
       if (!q) return fail('Question not found.');

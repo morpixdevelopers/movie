@@ -37,7 +37,7 @@ export default function Profile({ onOpen }) {
         <Stat value={score.avg !== null ? `★ ${score.avg}` : '—'} caption="Average rating" accent={score.avg !== null} />
       </View>
       <View style={[st.stats, { marginTop: S.lg }]}>
-        <Stat value={score.hearts} caption="Helpful hearts" accent={score.hearts > 0} />
+        <Stat value={score.ratings} caption="Ratings you earned" accent={score.ratings > 0} />
         <Stat value={watched.length} caption="Movies you finished" />
         <Stat value="" caption="" />
       </View>
@@ -68,7 +68,6 @@ export default function Profile({ onOpen }) {
                   : `${r.watched} watched · ${r.finished} finished${r.rating ? ` · ★ ${r.rating}` : ''}`}
               </Text>
             </View>
-            {r.hearts > 0 && <Text style={st.hearts}>♥ {r.hearts}</Text>}
           </Pressable>
         ))
       )}
@@ -149,6 +148,5 @@ const st = makeStyles((C, S, F, shadow) => StyleSheet.create({
   picked: { fontSize: 8, fontWeight: '800', color: C.accent, letterSpacing: 0.6 },
   outcome: { fontSize: 11.5, color: C.accent, marginTop: 3, fontWeight: '700' },
   quote: { fontSize: 11.5, color: C.muted, marginTop: 3, fontStyle: 'italic' },
-  hearts: { fontSize: 13, color: C.accent, fontWeight: '800' },
   rating: { fontSize: 13, color: C.amber, fontWeight: '800' },
 }));
