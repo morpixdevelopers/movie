@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import {
-  View, Text, Pressable, StyleSheet, StatusBar,
+  View, Text, Image, Pressable, StyleSheet, StatusBar,
   Platform, ActivityIndicator, Modal, ScrollView, Keyboard,
 } from 'react-native';
 import Animated, {
@@ -57,8 +57,10 @@ function Shell() {
 
       <View style={st.header}>
         <Pressable onPress={() => { setTab('feed'); setQid(null); }} style={st.brand}>
-          <Text style={st.brandText}>mr</Text>
-          <View style={st.brandDot} />
+          <Image source={require('./assets/logo-mark.png')} style={st.brandMark} />
+          <Text style={st.brandText}>
+            Movie<Text style={{ color: C.accent }}>Vouch</Text>
+          </Text>
         </Pressable>
         <Pressable style={st.who} onPress={() => setSwitching(true)}>
           <Avatar name={me.name} size={24} />
@@ -218,9 +220,11 @@ const st = makeStyles((C, S, F, shadow) => StyleSheet.create({
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
     paddingHorizontal: S.xl, paddingTop: S.sm, paddingBottom: S.md,
   },
-  brand: { flexDirection: 'row', alignItems: 'center', gap: 5 },
-  brandText: { fontSize: 25, fontWeight: '800', color: C.text, letterSpacing: -1.4 },
-  brandDot: { width: 7, height: 7, borderRadius: 2, backgroundColor: C.accent },
+  brand: { flexDirection: 'row', alignItems: 'center', gap: 7 },
+  // the source logo ships on an opaque black field; the black is knocked out
+  // so the mark sits on whichever theme is active
+  brandMark: { width: 30, height: 30 },
+  brandText: { fontSize: 17, fontWeight: '800', color: C.text, letterSpacing: -0.5 },
   who: {
     flexDirection: 'row', alignItems: 'center', gap: S.sm,
     backgroundColor: C.panel, borderWidth: 1, borderColor: C.line,

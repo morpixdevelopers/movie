@@ -8,6 +8,7 @@ import Sheet from '../components/Sheet';
 import Recommended from '../components/Recommended';
 import PollBoard from '../components/PollBoard';
 import Voted from '../components/Voted';
+import Rated from '../components/Rated';
 import { C, S, F, shadow, makeStyles } from '../theme';
 import { Btn, Avatar, Poster } from '../ui';
 import { useStore } from '../store';
@@ -36,6 +37,7 @@ export default function Collection({ questionId, onBack }) {
   const [comment, setComment] = useState('');
   const [added, setAdded] = useState(null);     // movie awaiting the recommend animation
   const [voted, setVoted] = useState(null);     // movie awaiting the vote animation
+  const [rated, setRated] = useState(null);     // score awaiting the rating animation
   const [remote, setRemote] = useState([]);
   const [looking, setLooking] = useState(false);
   const [chosen, setChosen] = useState(null); // an IMDb pick, with its poster
@@ -514,7 +516,16 @@ export default function Collection({ questionId, onBack }) {
                             year: chosen.year }
                         : null,
                     });
-                    if (res.state) close();
+                    if (res.state) {
+                      const backed = findMovie(res.state, res.movieId);
+                      close();
+                      setAdded({
+                        movie: backed,
+                        joined: res.joined,
+                        count: res.count,
+                        asker: isOp ? null : findUser(state, q.userId).name.split(' ')[0],
+                      });
+                    }
                   }} />
               </>
             )}
@@ -549,11 +560,15 @@ export default function Collection({ questionId, onBack }) {
                 />
                 <Btn title="Save experience" style={{ marginTop: S.xl }}
                   onPress={() => {
+                    const given = rating;
+                    const title = findMovie(state, sheet.movieId).title;
+                    const backers = stakers;
                     const res = run({
                       type: 'finish', questionId: q.id, movieId: sheet.movieId,
                       rating, text: expText,
                     });
-                    if (res.state) close();
+                    // read the sheet's values before close() clears them
+                    if (res.state) { close(); setRated({ rating: given, movie: title, backers }); }
                   }} />
               </>
             )}
@@ -604,6 +619,16 @@ export default function Collection({ questionId, onBack }) {
               </>
             )}
       </Sheet>
+
+      <Rated
+        visible={!!rated}
+        rating={rated?.rating}
+        face={rated ? RATING_FACES[rated.rating - 1] : ''}
+        label={rated ? RATING_LABELS[rated.rating - 1] : ''}
+        movie={rated?.movie}
+        backers={rated?.backers}
+        onDone={() => setRated(null)}
+      />
 
       <Voted
         visible={!!voted}
