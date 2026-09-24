@@ -32,11 +32,18 @@ export default function MovieCard({ state, question, row, index, closed, isOp, p
           {item.year} · {item.language}{'\n'}{item.runtime} min
         </Text>
 
-        <Text style={st.recCount}>
-          {poll
-            ? `◉ ${row.count} ${row.count === 1 ? 'vote' : 'votes'}`
-            : `♧ ${row.count} recommended`}
-        </Text>
+        <View style={st.countRow}>
+          <Text style={st.recCount}>
+            {poll
+              ? `◉ ${row.count} ${row.count === 1 ? 'vote' : 'votes'}`
+              : `♧ ${row.count} recommended`}
+          </Text>
+          {row.count > 0 && (
+            <Pressable onPress={onWhy} hitSlop={8}>
+              <Text style={st.viewLink}>View ↓</Text>
+            </Pressable>
+          )}
+        </View>
 
         <View style={st.stats}>
           <View style={st.stat}>
@@ -98,9 +105,6 @@ export default function MovieCard({ state, question, row, index, closed, isOp, p
           />
         )}
 
-        <Pressable onPress={onWhy}>
-          <Text style={st.link}>Why this movie? ↓</Text>
-        </Pressable>
       </View>
     </View>
   );
@@ -129,7 +133,16 @@ const st = makeStyles((C, S, F, shadow) => StyleSheet.create({
   },
   body: { padding: S.md + 2, gap: 4 },
   title: { fontSize: 14, fontWeight: '800', color: C.text, lineHeight: 19, letterSpacing: -0.2 },
-  recCount: { fontSize: 11.5, color: C.accent, marginVertical: 9, fontWeight: '800' },
+  countRow: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+    gap: 6, marginVertical: 9,
+  },
+  recCount: { fontSize: 11.5, color: C.accent, fontWeight: '800', flexShrink: 1 },
+  viewLink: {
+    fontSize: 10, fontWeight: '800', color: C.text, opacity: 0.75,
+    borderWidth: 1, borderColor: C.line, borderRadius: 6,
+    paddingHorizontal: 7, paddingVertical: 3,
+  },
   stats: {
     flexDirection: 'row', borderTopWidth: 1, borderTopColor: C.lineSoft,
     paddingTop: 10, gap: 8,

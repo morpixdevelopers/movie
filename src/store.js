@@ -29,7 +29,6 @@ function migrate(s) {
 
 export function StoreProvider({ children }) {
   const [state, setState] = useState(null);
-  const [toast, setToast] = useState('');
   const [error, setError] = useState('');
   const timer = useRef(null);
   const filled = useRef(false);
@@ -63,26 +62,28 @@ export function StoreProvider({ children }) {
     }).catch(() => {});
   }, [state]);
 
-  const flash = (msg, isError) => {
+  // Only refusals are announced. Every action that succeeds already changes
+  // something on screen — the card flips, the comment appears, the overlay
+  // plays — so a message on top of that was noise, not feedback.
+  const fail = (msg) => {
     clearTimeout(timer.current);
-    if (isError) { setError(msg); setToast(''); } else { setToast(msg); setError(''); }
-    timer.current = setTimeout(() => { setToast(''); setError(''); }, 3600);
+    setError(msg);
+    timer.current = setTimeout(() => setError(''), 3600);
   };
 
   // Single write path. Refusals surface as a message, never a silent no-op.
   const run = (action) => {
     if (!state) return {};
     const res = apply(state, action);
-    if (res.error) { flash(res.error, true); return {}; }
+    if (res.error) { fail(res.error); return {}; }
     setState(res.state);
-    if (res.toast) flash(res.toast, false);
     return res;
   };
 
-  const reset = () => { setState(seed()); flash('Scenario reset.', false); };
+  const reset = () => setState(seed());
 
   return (
-    <Ctx.Provider value={{ state, run, reset, toast, error, flash }}>
+    <Ctx.Provider value={{ state, run, reset, error, fail }}>
       {children}
     </Ctx.Provider>
   );

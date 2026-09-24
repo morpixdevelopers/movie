@@ -24,7 +24,7 @@ import Collection from './src/screens/Collection';
 import Profile from './src/screens/Profile';
 
 function Shell() {
-  const { state, run, toast, error } = useStore();
+  const { state, run, error } = useStore();
   const [tab, setTab] = useState('feed');
   const [qid, setQid] = useState(null);
   const [switching, setSwitching] = useState(false);
@@ -97,14 +97,14 @@ function Shell() {
         )}
       </View>
 
-      {!!(toast || error) && (
+      {/* refusals only — successful actions speak for themselves */}
+      {!!error && (
         <Animated.View
           entering={SlideInDown.springify().damping(18).stiffness(180)}
           exiting={FadeOut.duration(180)}
-          style={[st.toast, error && { backgroundColor: C.accentFill }]}
+          style={[st.toast, { backgroundColor: C.accentFill }]}
         >
-          {/* a white toast reads as information; a red one reads as a refusal */}
-          <Text style={[st.toastText, error && { color: C.onAccent }]}>{error || toast}</Text>
+          <Text style={[st.toastText, { color: C.onAccent }]}>{error}</Text>
         </Animated.View>
       )}
 

@@ -6,6 +6,7 @@ import { useStore } from '../store';
 import { movieBoard, leaderboard, findUser } from '../logic';
 
 const CINEMAS = ['Tamil', 'Malayalam', 'English'];
+const TOP = 5;
 
 // Home lists questions. Discover pools MOVIES across every collection —
 // the thing no single thread can show you.
@@ -15,7 +16,9 @@ export default function Discover({ onOpenProfile }) {
   const [lang, setLang] = useState(null);
 
   const board = movieBoard(state, { lang, term });
-  const people = leaderboard(state).slice(0, 5);
+  // only the leaders are listed; board itself still counts everything
+  const topMovies = board.slice(0, TOP);
+  const people = leaderboard(state).slice(0, TOP);
   const totalRecs = state.recommendations.length;
   const totalWatches = state.journeys.length;
 
@@ -54,16 +57,17 @@ export default function Discover({ onOpenProfile }) {
         ))}
       </View>
 
-      <Text style={[F.h2, { marginTop: S.xl }]}>Most recommended</Text>
+      <Text style={[F.h2, { marginTop: S.xl }]}>Top {TOP} movies</Text>
       <Text style={[F.tiny, { marginBottom: S.md }]}>
-        Ranked by unique recommenders, pooled across all collections.
+        Ranked by unique recommenders, pooled across all collections
+        {board.length > TOP ? ` — ${board.length} in total.` : '.'}
       </Text>
 
       {board.length === 0 ? (
         <View style={st.empty}>
           <Text style={F.small}>Nothing matches that yet.</Text>
         </View>
-      ) : board.map((row, i) => (
+      ) : topMovies.map((row, i) => (
         <View key={row.movieId} style={st.row}>
           <Text style={st.rank}>{String(i + 1).padStart(2, '0')}</Text>
           <Poster movie={row.movie} style={st.thumb} width={200} />
@@ -82,7 +86,7 @@ export default function Discover({ onOpenProfile }) {
         </View>
       ))}
 
-      <Text style={[F.h2, { marginTop: S.xxl }]}>Trusted recommenders</Text>
+      <Text style={[F.h2, { marginTop: S.xxl }]}>Top {TOP} recommenders</Text>
       <Text style={[F.tiny, { marginBottom: S.md }]}>
         Ranked by how people rated the films they watched on someone’s word.
       </Text>

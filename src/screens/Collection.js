@@ -43,11 +43,23 @@ export default function Collection({ questionId, onBack }) {
   const [chosen, setChosen] = useState(null); // an IMDb pick, with its poster
   const [draft, setDraft] = useState('');     // text being edited, question or reason
   const debounce = useRef(null);
+  const scroller = useRef(null);
+  const discussY = useRef(0);   // where the discussion starts, for "view"
+
+  // Focus one movie's reasons and take the reader there, rather than filtering
+  // a section that is two screens further down and leaving them to find it.
+  const viewReasons = (movieId) => {
+    setFocusMovie(movieId);
+    setTab('reasons');
+    scroller.current?.scrollTo({ y: Math.max(0, discussY.current - 12), animated: true });
+  };
 
   // Look the typed title up on IMDb so people get the real poster.
   useEffect(() => {
     if (!hasPosters) return;
     clearTimeout(debounce.current);
+    // once a film is locked in there is nothing left to search for
+    if (chosen) { setRemote([]); setLooking(false); return; }
     const term = title.trim();
     if (term.length < 2) { setRemote([]); setLooking(false); return; }
     setLooking(true);
@@ -58,7 +70,7 @@ export default function Collection({ questionId, onBack }) {
         .finally(() => setLooking(false));
     }, 350);
     return () => clearTimeout(debounce.current);
-  }, [title]);
+  }, [title, chosen]);
 
 
   if (!q) return null;
@@ -152,6 +164,7 @@ export default function Collection({ questionId, onBack }) {
   return (
     <>
       <ScrollView
+        ref={scroller}
         contentContainerStyle={st.page}
         keyboardShouldPersistTaps="handled"
         keyboardDismissMode="on-drag"
@@ -315,7 +328,7 @@ export default function Collection({ questionId, onBack }) {
                   const j = myJourney(state, q.id, row.movieId);
                   if (j?.status !== 'finished') setSheet({ kind: 'experience', movieId: row.movieId });
                 }}
-                onWhy={() => { setFocusMovie(row.movieId); setTab('reasons'); }}
+                onWhy={() => viewReasons(row.movieId)}
               />
               </Animated.View>
             ))}
@@ -341,11 +354,30 @@ export default function Collection({ questionId, onBack }) {
             )}
           </View>
         )}
+
+        {/* The empty state has a proper button, so once the list fills up the
+            action must not shrink to a link in the header — that is exactly
+            when people stop noticing it. */}
+        {!closed && !isOp && list.length > 0 && (
+          <>
+            <Btn
+              title="＋ Recommend a movie"
+              style={{ marginTop: S.lg }}
+              onPress={() => setSheet({ kind: 'recommend' })}
+            />
+            <Text style={[F.tiny, { marginTop: S.sm, textAlign: 'center' }]}>
+              Not seeing the one you'd send them to? Add it.
+            </Text>
+          </>
+        )}
         </>
         )}
 
         {/* discussion */}
-        <View style={[st.sectionTitle, { marginTop: S.xxl }]}>
+        <View
+          onLayout={(e) => { discussY.current = e.nativeEvent.layout.y; }}
+          style={[st.sectionTitle, { marginTop: S.xxl }]}
+        >
           <Text style={[F.h2, { flex: 1 }]}>Why these movies</Text>
         </View>
         <View style={st.tabs}>
@@ -354,10 +386,35 @@ export default function Collection({ questionId, onBack }) {
               <Text style={[st.tabText, tab === id && { color: C.onAccent }]}>{label}</Text>
             </Pressable>
           ))}
-          <Pressable onPress={() => setFocusMovie('all')} style={[st.tab, focusMovie === 'all' && st.tabOn]}>
-            <Text style={[st.tabText, focusMovie === 'all' && { color: C.onAccent }]}>All movies</Text>
-          </Pressable>
         </View>
+
+        {/* one chip per movie, so you can read a single film's reasons */}
+        {list.length > 0 && (
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={st.filterRow}
+          >
+            <Pressable onPress={() => setFocusMovie('all')}
+              style={[st.tab, focusMovie === 'all' && st.tabOn]}>
+              <Text style={[st.tabText, focusMovie === 'all' && { color: C.onAccent }]}>
+                All movies
+              </Text>
+            </Pressable>
+            {list.map((r) => {
+              const m = findMovie(state, r.movieId);
+              const on = focusMovie === r.movieId;
+              return (
+                <Pressable key={r.movieId} onPress={() => setFocusMovie(r.movieId)}
+                  style={[st.tab, on && st.tabOn]}>
+                  <Text style={[st.tabText, on && { color: C.onAccent }]} numberOfLines={1}>
+                    {m.title}
+                  </Text>
+                </Pressable>
+              );
+            })}
+          </ScrollView>
+        )}
 
         {shown.length === 0 ? (
           <Text style={[F.small, { marginTop: S.md }]}>
@@ -446,7 +503,32 @@ export default function Collection({ questionId, onBack }) {
                   Recommend a new movie or support an existing one. One recommendation per person,
                   per movie.
                 </Text>
-                {!preset && (
+                {/* Once a film is picked the search collapses to just that one,
+                    so the reason field and the button are the next thing you see. */}
+                {!preset && chosen && (
+                  <>
+                    <Text style={st.fieldLab}>Movie</Text>
+                    <View style={st.lockedRow}>
+                      <Poster movie={chosen.poster} style={st.thumb} width={200} />
+                      <View style={{ flex: 1 }}>
+                        <Text style={st.suggestTitle} numberOfLines={2}>{chosen.title}</Text>
+                        <Text style={F.tiny}>
+                          {chosen.year || '—'}{chosen.language ? ` · ${chosen.language}` : ''}
+                        </Text>
+                      </View>
+                      <Pressable onPress={() => setChosen(null)} hitSlop={8}>
+                        <Text style={st.changeLink}>Change</Text>
+                      </Pressable>
+                    </View>
+                    <Text style={[st.hint, onListAlready ? { color: C.amber } : { color: C.accent }]}>
+                      {onListAlready
+                        ? `Already on this list with ${onListAlready.count} recommender${onListAlready.count === 1 ? '' : 's'}. Your reason joins that movie.`
+                        : `New movie — “${chosen.title}” will be added to the collection.`}
+                    </Text>
+                  </>
+                )}
+
+                {!preset && !chosen && (
                   <>
                     <Text style={st.fieldLab}>Movie</Text>
                     <TextInput
@@ -455,7 +537,13 @@ export default function Collection({ questionId, onBack }) {
                       placeholder="Type any movie title…" placeholderTextColor={C.dim}
                     />
                     {matches.map((m) => (
-                      <Pressable key={m.id} onPress={() => { setTitle(m.title); setChosen(null); }} style={st.suggestItem}>
+                      <Pressable
+                        key={m.id}
+                        onPress={() => {
+                          setTitle(m.title);
+                          setChosen({ title: m.title, year: m.year, language: m.language, poster: m });
+                        }}
+                        style={st.suggestItem}>
                         <Poster movie={m} style={st.thumb} width={200} />
                         <View style={{ flex: 1 }}>
                           <Text style={st.suggestTitle} numberOfLines={1}>{m.title}</Text>
@@ -474,8 +562,14 @@ export default function Collection({ questionId, onBack }) {
                       .filter((r) => !matches.some((m) => m.title.toLowerCase() === r.title.toLowerCase()))
                       .map((r) => (
                         <Pressable key={r.imdbId}
-                          onPress={() => { setTitle(r.title); setChosen(r); }}
-                          style={[st.suggestItem, chosen?.imdbId === r.imdbId && st.suggestOn]}>
+                          onPress={() => {
+                            setTitle(r.title);
+                            setChosen({
+                              title: r.title, year: r.year, imdbId: r.imdbId,
+                              posterUrl: r.posterUrl, poster: { posterUrl: r.posterUrl },
+                            });
+                          }}
+                          style={st.suggestItem}>
                           <Poster movie={{ posterUrl: r.posterUrl }} style={st.thumb} width={200} />
                           <View style={{ flex: 1 }}>
                             <Text style={st.suggestTitle} numberOfLines={1}>{r.title}</Text>
@@ -483,7 +577,6 @@ export default function Collection({ questionId, onBack }) {
                               {r.year || '—'}
                             </Text>
                           </View>
-                          {chosen?.imdbId === r.imdbId && <Text style={st.picked}>✓</Text>}
                         </Pressable>
                       ))}
                     {hasPosters && looking && (
@@ -509,11 +602,12 @@ export default function Collection({ questionId, onBack }) {
                   onPress={() => {
                     const res = run({
                       type: 'suggest', questionId: q.id,
-                      title: preset ? findMovie(state, preset).title : title,
+                      title: preset ? findMovie(state, preset).title : (chosen ? chosen.title : title),
                       text: reason,
-                      meta: !preset && chosen && chosen.title.toLowerCase() === title.trim().toLowerCase()
-                        ? { imdbId: chosen.imdbId, posterUrl: chosen.posterUrl,
-                            year: chosen.year }
+                      // only an IMDb pick carries metadata; a catalogue pick
+                      // already has its own, and free text has none
+                      meta: !preset && chosen?.imdbId
+                        ? { imdbId: chosen.imdbId, posterUrl: chosen.posterUrl, year: chosen.year }
                         : null,
                     });
                     if (res.state) {
@@ -703,6 +797,7 @@ const st = makeStyles((C, S, F, shadow) => StyleSheet.create({
     padding: S.xxl, alignItems: 'center',
   },
   tabs: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginVertical: S.md },
+  filterRow: { flexDirection: 'row', gap: 6, paddingBottom: S.md, paddingRight: S.lg },
   tab: { borderRadius: 100, backgroundColor: C.chip, paddingHorizontal: 14, paddingVertical: 9 },
   tabOn: { backgroundColor: C.accentFill },
   tabText: { fontSize: 11, color: C.muted, fontWeight: '600' },
@@ -717,6 +812,12 @@ const st = makeStyles((C, S, F, shadow) => StyleSheet.create({
     borderRadius: S.radiusSm, padding: S.md, color: C.text, fontSize: 14, minHeight: 48,
   },
   fieldLab: { fontSize: 12, fontWeight: '600', color: C.text, marginTop: S.lg, marginBottom: S.sm },
+  lockedRow: {
+    flexDirection: 'row', alignItems: 'center', gap: S.md,
+    borderWidth: 1, borderColor: C.tintLine, backgroundColor: C.tint,
+    borderRadius: S.radiusSm, padding: S.md,
+  },
+  changeLink: { color: C.accent, fontSize: 12.5, fontWeight: '800' },
   credit: {
     ...F.small, color: C.text, opacity: 0.9, lineHeight: 19,
     marginTop: S.md, padding: S.md,
@@ -731,8 +832,6 @@ const st = makeStyles((C, S, F, shadow) => StyleSheet.create({
   onList: { fontSize: 8.5, letterSpacing: 0.8, color: C.amber, fontWeight: '800' },
   thumb: { width: 34, height: 48 },
   suggestTitle: { color: C.text, fontSize: 13.5, fontWeight: '700' },
-  suggestOn: { backgroundColor: C.tint, borderRadius: S.radiusXs, paddingHorizontal: 6 },
-  picked: { color: C.accent, fontSize: 16, fontWeight: '800' },
   remoteLab: { ...F.label, marginTop: S.md, marginBottom: 2 },
   rate: {
     flex: 1, minHeight: 78, borderWidth: 1, borderColor: C.line, borderRadius: 9,
