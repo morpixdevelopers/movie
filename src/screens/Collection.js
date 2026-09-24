@@ -80,6 +80,8 @@ export default function Collection({ questionId, onBack }) {
   const list = rows(state, q);
   const isOp = q.userId === state.meId;
   const author = findUser(state, q.userId);
+  // first name only — "OP" is forum jargon, and a name says who actually decides
+  const askerName = author.name.split(' ')[0];
   const recs = state.recommendations.filter((r) => r.questionId === q.id);
   const people = new Set(recs.map((r) => r.userId)).size;
   const comments = state.comments.filter((c) => c.questionId === q.id).sort((a, b) => a.createdAt - b.createdAt);
@@ -155,6 +157,11 @@ export default function Collection({ questionId, onBack }) {
     : 0;
 
 
+  // what the thread has gathered so far, in one line
+  const tally = poll
+    ? `${list.length} ${list.length === 1 ? 'option' : 'options'} · ${people} ${people === 1 ? 'vote' : 'votes'}`
+    : `${list.length} ${list.length === 1 ? 'movie' : 'movies'} · ${people} ${people === 1 ? 'person' : 'people'}`;
+
   const shown = tab === 'reasons'
     ? recs.filter((r) => focusMovie === 'all' || r.movieId === focusMovie)
     : state.journeys.filter((j) =>
@@ -179,7 +186,7 @@ export default function Collection({ questionId, onBack }) {
             <View style={st.user}>
               <Avatar name={author.name} size={33} />
               <View>
-                <Text style={st.username}>{author.name} <Text style={F.tiny}>· Original poster</Text></Text>
+                <Text style={st.username}>{author.name} <Text style={F.tiny}>· asked this</Text></Text>
                 <Text style={F.tiny}>{ago(q.createdAt)}</Text>
               </View>
             </View>
@@ -195,30 +202,30 @@ export default function Collection({ questionId, onBack }) {
 
           {(q.lang || q.genre || q.constraints) ? (
             <View style={st.request}>
-              <Text style={st.requestLab}>LOOKING FOR</Text>
+              <View style={st.requestTop}>
+                <Text style={st.requestLab}>LOOKING FOR</Text>
+                {list.length > 0 && <Text style={st.tally}>{tally}</Text>}
+              </View>
               <View style={st.tags}>
                 {!!q.lang && <Tag label={q.lang} />}
                 {!!q.genre && <Tag label={q.genre} />}
               </View>
               {!!q.constraints && <Text style={[F.small, { marginTop: 8 }]}>{q.constraints}</Text>}
             </View>
+          ) : list.length > 0 ? (
+            // no tags to show, but the tally still belongs above the movies
+            <View style={st.requestSlim}><Text style={st.tally}>{tally}</Text></View>
           ) : <View style={{ height: S.md }} />}
 
-          <Text style={F.small}>
-            {poll
-              ? `${list.length} options · ${people} ${people === 1 ? 'vote' : 'votes'} so far.`
-              : `${people} ${people === 1 ? 'person' : 'people'} recommended ${list.length} ${list.length === 1 ? 'movie' : 'movies'}.`}
-            {closed
-              ? ' The suggestions are preserved. Your movie night starts here.'
-              : ' A few honest recommendations can make someone’s evening.'}
-          </Text>
 
           <View style={st.stateNote}>
             <Text style={st.symbol}>{closed ? '↗' : '✳'}</Text>
             <Text style={[F.small, { flex: 1, color: C.text, opacity: 0.9 }]}>
               {closed ? (
                 <>
-                  <Text style={st.strong}>The OP chose {findMovie(state, q.opMovieId).title}.</Text>
+                  <Text style={st.strong}>
+                    {isOp ? 'You chose' : `${askerName} chose`} {findMovie(state, q.opMovieId).title}.
+                  </Text>
                   {' '}You can choose that — or any other movie below. No new movies or
                   recommendations can be added.
                 </>
@@ -230,7 +237,7 @@ export default function Collection({ questionId, onBack }) {
                   </>
                 ) : (
                   <>
-                    <Text style={st.strong}>{findUser(state, q.userId).name.split(' ')[0]} listed the options.</Text>
+                    <Text style={st.strong}>{askerName} listed the options.</Text>
                     {' '}Pick the one you'd send them to. Nothing new can be added.
                   </>
                 )
@@ -243,8 +250,8 @@ export default function Collection({ questionId, onBack }) {
               ) : (
                 <>
                   <Text style={st.strong}>The suggestion phase is open.</Text>
-                  {' '}Add a pick or support an existing movie. Choosing opens for everyone when
-                  the OP makes their pick.
+                  {' '}Add a pick or support an existing movie. Choosing opens for everyone
+                  once {askerName} picks.
                 </>
               )}
             </Text>
@@ -267,11 +274,6 @@ export default function Collection({ questionId, onBack }) {
           )}
         </View>
 
-        <View style={st.flow}>
-          <FlowItem n="01 · Build the collection" sub={closed ? 'Suggestions preserved' : 'Suggest and support'} on={!closed} />
-          <FlowItem n="02 · Choose your movie" sub={closed ? 'Open to everyone' : 'OP makes the first pick'} on={closed} />
-          <FlowItem n="03 · Pass it forward" sub="Watch, rate, share" on={closed} />
-        </View>
 
         {poll && !closed ? (
           <PollBoard
@@ -282,7 +284,7 @@ export default function Collection({ questionId, onBack }) {
               if (res.state) {
                 setVoted({
                   movie: findMovie(res.state, movieId).title,
-                  asker: q.userId === state.meId ? null : findUser(state, q.userId).name.split(' ')[0],
+                  asker: isOp ? null : askerName,
                 });
               }
             }}
@@ -475,7 +477,7 @@ export default function Collection({ questionId, onBack }) {
               <View>
                 <Text style={st.username}>
                   {findUser(state, c.userId).name}
-                  {c.userId === q.userId ? <Text style={F.tiny}> · OP</Text> : null}
+                  {c.userId === q.userId ? <Text style={F.tiny}> · asked this</Text> : null}
                 </Text>
                 <Text style={F.tiny}>{ago(c.createdAt)}</Text>
               </View>
@@ -617,7 +619,7 @@ export default function Collection({ questionId, onBack }) {
                         movie: backed,
                         joined: res.joined,
                         count: res.count,
-                        asker: isOp ? null : findUser(state, q.userId).name.split(' ')[0],
+                        asker: isOp ? null : askerName,
                       });
                     }
                   }} />
@@ -747,12 +749,6 @@ export default function Collection({ questionId, onBack }) {
 
 const Tag = ({ label }) => <View style={st.tag}><Text style={st.tagText}>{label}</Text></View>;
 
-const FlowItem = ({ n, sub, on }) => (
-  <View style={[st.flowItem, on && st.flowItemOn]}>
-    <Text style={[st.flowStrong, on && { color: C.onAccent }]}>{n}</Text>
-    <Text style={[st.flowSub, on && { color: 'rgba(255,255,255,0.85)' }]}>{sub}</Text>
-  </View>
-);
 
 const st = makeStyles((C, S, F, shadow) => StyleSheet.create({
   page: { padding: S.lg, paddingTop: S.md },
@@ -776,19 +772,21 @@ const st = makeStyles((C, S, F, shadow) => StyleSheet.create({
   ownerDanger: { borderColor: C.tintLine, backgroundColor: C.tint },
   ownerText: { fontSize: 13.5, fontWeight: '700', color: C.text },
   qTitle: { fontSize: 23, fontWeight: '800', color: C.text, lineHeight: 31, marginVertical: 18, letterSpacing: -0.5 },
-  request: { borderTopWidth: 1, borderBottomWidth: 1, borderColor: C.line, paddingVertical: 13, marginBottom: 18 },
+  // the note below owns the gap, so these only need to clear their own border
+  request: { borderTopWidth: 1, borderBottomWidth: 1, borderColor: C.line, paddingVertical: 13 },
   requestLab: { fontSize: 10, fontWeight: '600', color: C.text, opacity: 0.85, letterSpacing: 0.6 },
+  requestTop: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 10 },
+  requestSlim: {
+    borderTopWidth: 1, borderBottomWidth: 1, borderColor: C.line,
+    paddingVertical: 11,
+  },
+  tally: { fontSize: 11, fontWeight: '800', color: C.accent },
   tags: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: 10 },
   tag: { backgroundColor: C.panelHi, borderRadius: 6, paddingHorizontal: 8, paddingVertical: 5 },
   tagText: { fontSize: 10, color: C.muted },
-  stateNote: { flexDirection: 'row', gap: 10, marginTop: 14 },
+  stateNote: { flexDirection: 'row', gap: 10, marginTop: 12 },
   symbol: { color: C.accent, fontSize: 17, lineHeight: 21 },
   strong: { color: C.text, fontWeight: '700' },
-  flow: { flexDirection: 'row', gap: 8, marginVertical: 22 },
-  flowItem: { flex: 1, backgroundColor: C.panel, borderRadius: S.radiusSm, padding: 12, ...shadow(1) },
-  flowItemOn: { backgroundColor: C.accentFill },
-  flowStrong: { fontSize: 10.5, fontWeight: '700', color: C.text, marginBottom: 5, lineHeight: 14 },
-  flowSub: { fontSize: 9, color: C.muted, lineHeight: 13 },
   sectionTitle: { flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 6 },
   link: { color: C.accent, fontSize: 12, fontWeight: '600' },
   grid: { flexDirection: 'row', flexWrap: 'wrap' },

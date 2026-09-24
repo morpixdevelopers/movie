@@ -26,10 +26,6 @@ export default function Discover({ onOpenProfile }) {
     <ScrollView contentContainerStyle={st.page} keyboardShouldPersistTaps="handled">
       <Text style={st.eyebrow}>ACROSS EVERY COLLECTION</Text>
       <Text style={st.h1}>What people{'\n'}actually recommend.</Text>
-      <Text style={[F.small, { marginTop: S.sm }]}>
-        Not one thread — every movie anyone has vouched for, ranked by how many different people
-        put their name to it.
-      </Text>
 
       <View style={st.totals}>
         <Total n={board.length} label="movies vouched for" />
@@ -37,12 +33,12 @@ export default function Discover({ onOpenProfile }) {
         <Total n={totalWatches} label="viewer choices" />
       </View>
 
-      <TextInput
+      {/* <TextInput
         style={st.input}
         placeholder="Search a movie…"
         placeholderTextColor={C.dim}
         value={term} onChangeText={setTerm}
-      />
+      /> */}
 
       <Text style={st.lab}>YOUR CINEMAS</Text>
       <View style={st.chips}>
@@ -107,11 +103,6 @@ export default function Discover({ onOpenProfile }) {
         </Pressable>
       ))}
 
-      <View style={st.note}>
-        <Text style={st.noteStrong}>One question.{'\n'}Many good movie nights.</Text>
-        <Text style={[F.tiny, { marginTop: 6 }]}>Built by people. Better with time.</Text>
-      </View>
-      <View style={{ height: 40 }} />
     </ScrollView>
   );
 }
