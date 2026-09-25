@@ -3,6 +3,7 @@ import { View, Text, ScrollView, Pressable, StyleSheet } from 'react-native';
 import { C, S, F, makeStyles, useTheme } from '../theme';
 import { Avatar, Rule, Stat, Btn, Poster, SectionHead } from '../ui';
 import { useStore } from '../store';
+import { useAuth } from '../auth';
 import {
   recommenderScore, myRecommendations, myWatched, findUser, ago,
 } from '../logic';
@@ -10,6 +11,7 @@ import {
 export default function Profile({ onOpen }) {
   const { state, reset } = useStore();
   const { mode, resolved, setMode } = useTheme();
+  const { user, signOut } = useAuth();
   const me = findUser(state, state.meId);
   const score = recommenderScore(state, state.meId);
   const mine = myRecommendations(state, state.meId);
@@ -118,7 +120,10 @@ export default function Profile({ onOpen }) {
           : `Always ${mode}, whatever your phone is set to.`}
       </Text>
 
-      <Btn kind="ghost" title="Reset to the seeded scenario" onPress={reset} style={{ marginTop: S.xxl }} />
+      <SectionHead title="Account" sub={user?.email || ''} style={{ marginTop: S.xxl }} />
+      <Btn kind="ghost" title="Sign out" onPress={signOut} style={{ marginTop: S.md }} />
+
+      <Btn kind="ghost" title="Reset to the seeded scenario" onPress={reset} style={{ marginTop: S.md }} />
       <View style={{ height: 40 }} />
     </ScrollView>
   );

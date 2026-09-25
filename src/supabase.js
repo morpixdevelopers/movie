@@ -19,6 +19,11 @@ export const supabase = isConfigured
         autoRefreshToken: true,
         persistSession: true,
         detectSessionInUrl: false, // no URL callbacks on native
+        // The default (implicit) returns tokens in the URL *fragment*, and
+        // Android drops fragments when handing a deep link to an app — the
+        // session simply never arrives. PKCE puts a ?code= in the query
+        // string instead, which survives the hop.
+        flowType: 'pkce',
       },
     })
   : null;

@@ -22,6 +22,8 @@ import AskKind from './src/components/AskKind';
 import Posted from './src/components/Posted';
 import Collection from './src/screens/Collection';
 import Profile from './src/screens/Profile';
+import Auth from './src/screens/Auth';
+import { AuthProvider, useAuth } from './src/auth';
 
 function Shell() {
   const { state, run, error } = useStore();
@@ -199,18 +201,24 @@ export default function App() {
   return (
     <ThemeProvider>
       <SafeAreaProvider>
-        <StoreProvider>
-          <Themed />
-        </StoreProvider>
+        <AuthProvider>
+          <StoreProvider>
+            <Gate />
+          </StoreProvider>
+        </AuthProvider>
       </SafeAreaProvider>
     </ThemeProvider>
   );
 }
 
-// Keyed on the resolved palette so the tree rebuilds cleanly on a switch and
-// nothing is left holding a style from the previous theme.
-function Themed() {
+// Keyed on the resolved palette so the tree rebuilds cleanly on a theme switch
+// and nothing is left holding a style from the previous one.
+function Gate() {
   const { resolved } = useTheme();
+  const { ready, session } = useAuth();
+  // hold the frame rather than flash the sign-in screen at someone already in
+  if (!ready) return <View style={st.root} />;
+  if (!session) return <Auth key={'auth-' + resolved} />;
   return <Shell key={resolved} />;
 }
 
